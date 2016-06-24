@@ -593,6 +593,36 @@ UA_StatusCode UA_Server_run_startup(UA_Server *server) {
         }
     }
 
+    /* Init URLs of applications according to NLs ones */
+    for(size_t i = 0; i < server->applicationsSize; i++) {
+        UA_Application* application = &server->applications[i];
+        UA_String *disc = UA_realloc(application->description.discoveryUrls, sizeof(UA_String) *
+                (application->description.discoveryUrlsSize + server->config.networkLayersSize));
+        if(!disc) {
+            UA_ApplicationDescription_delete(&application->description);
+            return UA_STATUSCODE_BADOUTOFMEMORY;
+        }
+        application->description.discoveryUrls = disc;
+        application->description.discoveryUrlsSize = server->config.networkLayersSize;
+
+        // TODO: Add nl only if discoveryUrl not already present
+
+        for(size_t j = 0; j < server->config.networkLayersSize; j++) {
+            /* Set application discoveryUrl using its prefix */
+            UA_ServerNetworkLayer *nl = &server->config.networkLayers[j];
+            UA_String_init(&application->description.discoveryUrls[j]);
+            UA_String_copy(&nl->discoveryUrl, &application->description.discoveryUrls[j]);
+            UA_String_append(&application->description.discoveryUrls[j], &server->applications[i].suffix);
+
+            /* Init URLs of endpoints according to NLs ones */
+            /* Every application has already server->config.networkLayersSize many endpoints */
+            UA_String_copy(&application->description.discoveryUrls[j], &application->endpoints[j]->description.endpointUrl);
+            //UA_String endpointSuffx = UA_STRING("/endpoint");
+            //UA_String_append(&application->endpoints[j]->description.endpointUrl, &endpointSuffx);
+        }
+    }
+
+
     return result;
 }
 
