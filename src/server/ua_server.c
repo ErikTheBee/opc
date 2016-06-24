@@ -256,6 +256,21 @@ void UA_Server_delete(UA_Server *server) {
     UA_Array_delete(server->endpointDescriptions, server->endpointDescriptionsSize,
                     &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
 
+    //todo: rework
+    for(size_t i=0;i<server->applicationsSize;i++){
+        UA_ApplicationDescription_deleteMembers(&server->applications[i].description);
+        UA_String_deleteMembers(&server->applications[i].suffix);
+        UA_free(server->applications[i].endpoints);
+    }
+    UA_free(server->applications);
+
+    //todo: rework
+    for(size_t i=0;i<server->endpointsSize;i++){
+        UA_EndpointDescription_deleteMembers(&server->endpoints[i].description);
+    }
+    UA_free(server->endpoints);
+
+
 #ifdef UA_ENABLE_MULTITHREADING
     pthread_cond_destroy(&server->dispatchQueue_condition);
 #endif
@@ -440,6 +455,75 @@ addVariableTypeNode_subtype(UA_Server *server, char* name, UA_UInt32 variabletyp
     addNodeInternal(server, (UA_Node*)variabletype, UA_NODEID_NUMERIC(0, parent), nodeIdHasSubType);
 }
 
+static UA_StatusCode UA_Server_addApplication(UA_Server *server, UA_ApplicationDescription* description, UA_String urlSuffix){
+    //adding application to the server
+    server->applications = UA_realloc(server->applications,sizeof(UA_Application)*(++server->applicationsSize));
+    UA_Application* newApplication = &server->applications[server->applicationsSize-1];
+    newApplication->endpointsSize = 0;
+    newApplication->endpoints = NULL;
+    UA_ApplicationDescription_init(&newApplication->description);
+    UA_ApplicationDescription_copy(description, &(newApplication->description));
+    UA_String_init(&newApplication->suffix);
+    UA_String_copy(&urlSuffix, &newApplication->suffix);
+
+    //adding a default endpoint to the sever and link it with the application
+    //todo: not sure how to handle different networklayers
+    server->endpoints = UA_realloc(server->endpoints,sizeof(UA_Endpoint)*(++server->endpointsSize));
+    UA_Endpoint* newEndpoint = &server->endpoints[server->endpointsSize-1];
+    UA_EndpointDescription_init(&newEndpoint->description);
+
+    //cross-link endpoint and application
+    newEndpoint->application = newApplication;
+    //cross-link application and endpoint
+    newApplication->endpoints = UA_realloc(newApplication->endpoints, sizeof(UA_Endpoint*)*(++newApplication->endpointsSize));
+    newApplication->endpoints[newApplication->endpointsSize-1] = newEndpoint;
+
+    //init endpoint
+    UA_EndpointDescription *endpointDescription = &newEndpoint->description;
+
+    //fixme - we need to destinguish between app url and endpoint url
+    UA_String_copy(&newApplication->description.applicationUri, &endpointDescription->endpointUrl);
+
+    endpointDescription->securityMode = UA_MESSAGESECURITYMODE_NONE;
+    endpointDescription->securityPolicyUri =
+            UA_STRING_ALLOC("http://opcfoundation.org/UA/SecurityPolicy#None");
+    endpointDescription->transportProfileUri =
+            UA_STRING_ALLOC("http://opcfoundation.org/UA-Profile/Transport/uatcp-uasc-uabinary");
+
+    size_t policies = 0;
+    if(server->config.enableAnonymousLogin)
+        policies++;
+    if(server->config.enableUsernamePasswordLogin)
+        policies++;
+    endpointDescription->userIdentityTokensSize = policies;
+    endpointDescription->userIdentityTokens = UA_Array_new(policies, &UA_TYPES[UA_TYPES_USERTOKENPOLICY]);
+
+    size_t currentIndex = 0;
+    if(server->config.enableAnonymousLogin) {
+        UA_UserTokenPolicy_init(&endpointDescription->userIdentityTokens[currentIndex]);
+        endpointDescription->userIdentityTokens[currentIndex].tokenType = UA_USERTOKENTYPE_ANONYMOUS;
+        endpointDescription->userIdentityTokens[currentIndex].policyId = UA_STRING_ALLOC(ANONYMOUS_POLICY);
+        currentIndex++;
+    }
+    if(server->config.enableUsernamePasswordLogin) {
+        UA_UserTokenPolicy_init(&endpointDescription->userIdentityTokens[currentIndex]);
+        endpointDescription->userIdentityTokens[currentIndex].tokenType = UA_USERTOKENTYPE_USERNAME;
+        endpointDescription->userIdentityTokens[currentIndex].policyId = UA_STRING_ALLOC(USERNAME_POLICY);
+    }
+
+    /* The standard says "the HostName specified in the Server Certificate is the
+       same as the HostName contained in the endpointUrl provided in the
+       EndpointDescription */
+    UA_String_copy(&server->config.serverCertificate, &endpointDescription->serverCertificate);
+    UA_ApplicationDescription_copy(&newApplication->description, &endpointDescription->server);
+
+
+    /* copy the discovery url only once the networlayer has been started */
+    // UA_String_copy(&server->config.networkLayers[i].discoveryUrl, &endpoint->endpointUrl);
+
+    return UA_STATUSCODE_GOOD;
+}
+
 UA_Server * UA_Server_new(const UA_ServerConfig config) {
     UA_Server *server = UA_calloc(1, sizeof(UA_Server));
     if(!server)
@@ -458,12 +542,25 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     /* uncomment for non-reproducible server runs */
     //UA_random_seed(UA_DateTime_now());
 
+    server->endpointsSize = 0;
+    server->endpoints = NULL;
+
+    server->applicationsSize = 0;
+    server->applications = NULL;
+
+    server->namespacesSize = 0;
+    server->namespaces = NULL;
+
     /* ns0 and ns1 */
     server->namespaces = UA_Array_new(2, &UA_TYPES[UA_TYPES_STRING]);
     server->namespaces[0] = UA_STRING_ALLOC("http://opcfoundation.org/UA/");
     UA_String_copy(&server->config.applicationDescription.applicationUri, &server->namespaces[1]);
     server->namespacesSize = 2;
 
+    UA_Server_addApplication(server,&server->config.applicationDescription, UA_STRING("/default"));
+
+    UA_Server_addApplication(server,&server->config.applicationDescription, UA_STRING("/default2"));
+/*
     server->endpointDescriptions = UA_Array_new(server->config.networkLayersSize,
                                                 &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
     server->endpointDescriptionsSize = server->config.networkLayersSize;
@@ -495,16 +592,18 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
             endpoint->userIdentityTokens[currentIndex].tokenType = UA_USERTOKENTYPE_USERNAME;
             endpoint->userIdentityTokens[currentIndex].policyId = UA_STRING_ALLOC(USERNAME_POLICY);
         }
-
+*/
         /* The standard says "the HostName specified in the Server Certificate is the
            same as the HostName contained in the endpointUrl provided in the
            EndpointDescription */
-        UA_String_copy(&server->config.serverCertificate, &endpoint->serverCertificate);
-        UA_ApplicationDescription_copy(&server->config.applicationDescription, &endpoint->server);
+//        UA_String_copy(&server->config.serverCertificate, &endpoint->serverCertificate);
+//        UA_ApplicationDescription_copy(&server->config.applicationDescription, &endpoint->server);
+
+
 
         /* copy the discovery url only once the networlayer has been started */
         // UA_String_copy(&server->config.networkLayers[i].discoveryUrl, &endpoint->endpointUrl);
-    }
+//    }
 
     UA_SecureChannelManager_init(&server->secureChannelManager, server);
     UA_SessionManager_init(&server->sessionManager, server);

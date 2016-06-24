@@ -33,11 +33,31 @@ typedef struct {
 } UA_Worker;
 #endif
 
+typedef struct UA_Endpoint UA_Endpoint;
+typedef struct UA_Application UA_Application;
+
+struct UA_Endpoint {
+    UA_EndpointDescription description;
+
+    UA_Application* application;
+};
+
+struct UA_Application {
+    UA_ApplicationDescription description;
+    UA_String suffix;
+
+    size_t  endpointsSize;
+    UA_Endpoint** endpoints;
+};
+
 struct UA_Server {
     /* Meta */
     UA_DateTime startTime;
     size_t endpointDescriptionsSize;
     UA_EndpointDescription *endpointDescriptions;
+
+    size_t endpointsSize;
+    UA_Endpoint *endpoints;
 
     /* Security */
     UA_SecureChannelManager secureChannelManager;
@@ -71,6 +91,10 @@ struct UA_Server {
     /* Config is the last element so that MSVC allows the usernamePasswordLogins
        field with zero-sized array */
     UA_ServerConfig config;
+
+    /* Applications */
+    size_t applicationsSize;
+    UA_Application *applications;
 };
 
 typedef UA_StatusCode (*UA_EditNodeCallback)(UA_Server*, UA_Session*, UA_Node*, const void*);

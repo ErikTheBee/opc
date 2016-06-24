@@ -50,6 +50,19 @@ UA_Boolean UA_String_equal(const UA_String *string1, const UA_String *string2) {
     return (is == 0) ? true : false;
 }
 
+UA_StatusCode UA_String_append(UA_String *string1, const UA_String *string2){
+    if(!string1 || !string2)
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    void* ptr = UA_realloc(string1->data,string1->length+string2->length);
+    if(!ptr)
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+
+    string1->data = ptr;
+    memcpy(string1->data+string1->length,string2->data,string2->length);
+    string1->length += string2->length;
+    return UA_STATUSCODE_GOOD;
+}
+
 /* DateTime */
 
 /* Implement UA_DateTime_now and UA_DateTime_nowMonotonic outside of the
