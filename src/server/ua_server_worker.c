@@ -596,6 +596,10 @@ UA_StatusCode UA_Server_run_startup(UA_Server *server) {
     /*
      * For each application add a number of endponits
     */
+
+    if(server->applicationsSize*server->config.networkLayersSize == 0)
+        return result;
+
     server->endpoints = (UA_Endpoint*)UA_malloc(sizeof(UA_Endpoint)*server->applicationsSize*server->config.networkLayersSize);
     if(!server->endpoints)
         return UA_STATUSCODE_BADOUTOFMEMORY;
