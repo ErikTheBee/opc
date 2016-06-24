@@ -43,14 +43,33 @@ void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEn
     /*     return; */
     /* } */
     
+    /* locate relevant application */
+    UA_Application* application = NULL;
+    for(size_t i=0;i<server->applicationsSize;i++){
+        UA_Application* temp_application = &server->applications[i];
+        for(size_t j=0;j<temp_application->description.discoveryUrlsSize;j++){
+            if(UA_String_equal(&request->endpointUrl, &temp_application->description.discoveryUrls[j])){
+                application = temp_application;
+                break;
+            }
+        }
+        if(application)
+            break;
+    }
+
+    if(!application){
+        response->endpointsSize = 0;
+        return;
+    }
+
     /* test if the supported binary profile shall be returned */
 #ifdef NO_ALLOCA
-    UA_Boolean relevant_endpoints[server->endpointDescriptionsSize];
+    UA_Boolean relevant_endpoints[application->endpointsSize];
 #else
-    UA_Boolean *relevant_endpoints = UA_alloca(sizeof(UA_Byte) * server->endpointDescriptionsSize);
+    UA_Boolean *relevant_endpoints = UA_alloca(sizeof(UA_Byte) * application->endpointsSize);
 #endif
     size_t relevant_count = 0;
-    for(size_t j = 0; j < server->endpointDescriptionsSize; j++) {
+    for(size_t j = 0; j < application->endpointsSize; j++) {
         relevant_endpoints[j] = false;
         if(request->profileUrisSize == 0) {
             relevant_endpoints[j] = true;
@@ -58,7 +77,7 @@ void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEn
             continue;
         }
         for(size_t i = 0; i < request->profileUrisSize; i++) {
-            if(UA_String_equal(&request->profileUris[i], &server->endpointDescriptions[j].transportProfileUri)) {
+            if(UA_String_equal(&request->profileUris[i], &application->endpoints[j]->description.transportProfileUri)) {
                 relevant_endpoints[j] = true;
                 relevant_count++;
                 break;
@@ -79,17 +98,17 @@ void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEn
 
     size_t k = 0;
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
-    for(size_t j = 0; j < server->endpointDescriptionsSize && retval == UA_STATUSCODE_GOOD; j++) {
+    for(size_t j = 0; j < application->endpointsSize && retval == UA_STATUSCODE_GOOD; j++) {
         if(!relevant_endpoints[j])
             continue;
-        retval = UA_EndpointDescription_copy(&server->endpointDescriptions[j], &response->endpoints[k]);
+        retval = UA_EndpointDescription_copy(&application->endpoints[j]->description, &response->endpoints[k]);
         if(retval != UA_STATUSCODE_GOOD)
             break;
         /* replace endpoint's URL to the requested one if provided */
-        if(request->endpointUrl.length > 0){
-            UA_String_deleteMembers(&response->endpoints[k].endpointUrl);
-            retval = UA_String_copy(&request->endpointUrl, &response->endpoints[k].endpointUrl);
-        }
+        //if(request->endpointUrl.length > 0){
+        //    UA_String_deleteMembers(&response->endpoints[k].endpointUrl);
+        //    retval = UA_String_copy(&request->endpointUrl, &response->endpoints[k].endpointUrl);
+        //}
         k++;
     }
 
