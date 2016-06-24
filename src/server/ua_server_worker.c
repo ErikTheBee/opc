@@ -593,6 +593,85 @@ UA_StatusCode UA_Server_run_startup(UA_Server *server) {
         }
     }
 
+    /*
+     * For each application add a number of endponits
+    */
+    server->endpoints = (UA_Endpoint*)UA_malloc(sizeof(UA_Endpoint)*server->applicationsSize*server->config.networkLayersSize);
+    if(!server->endpoints)
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+
+    server->endpointsSize=server->applicationsSize*server->config.networkLayersSize;
+
+    for(size_t i=0; i<server->endpointsSize; i++){
+        server->endpoints[i].application = NULL;
+        UA_EndpointDescription_init(&server->endpoints[i].description);
+    }
+
+    for(size_t j=0; j<server->applicationsSize; j++){
+        UA_Application* newApplication = &server->applications[j];
+        for(size_t i = 0; i<server->config.networkLayersSize; i++){
+            //adding a default endpoint to the sever and link it with the application
+            //todo: not sure how to handle different networklayers
+
+            UA_Endpoint* newEndpoint = &server->endpoints[j*server->config.networkLayersSize+i];
+            UA_EndpointDescription_init(&newEndpoint->description);
+            newEndpoint->application = NULL;
+
+            //cross-link endpoint and application
+            newEndpoint->application = newApplication;
+            //cross-link application and endpoint
+            void* ptr = UA_realloc(newApplication->endpoints, sizeof(UA_Endpoint*)*(newApplication->endpointsSize+1)); //fixme check for 0
+            if(ptr)
+                newApplication->endpoints = ptr;
+            newApplication->endpointsSize++;
+            newApplication->endpoints[newApplication->endpointsSize-1] = newEndpoint;
+
+            //init endpoint
+            UA_EndpointDescription *endpointDescription = &newEndpoint->description;
+
+            //fixme - we need to destinguish between app url and endpoint url
+            //UA_String_copy(&newApplication->description.applicationUri, &endpointDescription->endpointUrl);
+
+            endpointDescription->securityMode = UA_MESSAGESECURITYMODE_NONE;
+            endpointDescription->securityPolicyUri =
+                    UA_STRING_ALLOC("http://opcfoundation.org/UA/SecurityPolicy#None");
+            endpointDescription->transportProfileUri =
+                    UA_STRING_ALLOC("http://opcfoundation.org/UA-Profile/Transport/uatcp-uasc-uabinary");
+
+            size_t policies = 0;
+            if(server->config.enableAnonymousLogin)
+                policies++;
+            if(server->config.enableUsernamePasswordLogin)
+                policies++;
+            endpointDescription->userIdentityTokensSize = policies;
+            endpointDescription->userIdentityTokens = UA_Array_new(policies, &UA_TYPES[UA_TYPES_USERTOKENPOLICY]);
+
+            size_t currentIndex = 0;
+            if(server->config.enableAnonymousLogin) {
+                UA_UserTokenPolicy_init(&endpointDescription->userIdentityTokens[currentIndex]);
+                endpointDescription->userIdentityTokens[currentIndex].tokenType = UA_USERTOKENTYPE_ANONYMOUS;
+                endpointDescription->userIdentityTokens[currentIndex].policyId = UA_STRING_ALLOC(ANONYMOUS_POLICY);
+                currentIndex++;
+            }
+            if(server->config.enableUsernamePasswordLogin) {
+                UA_UserTokenPolicy_init(&endpointDescription->userIdentityTokens[currentIndex]);
+                endpointDescription->userIdentityTokens[currentIndex].tokenType = UA_USERTOKENTYPE_USERNAME;
+                endpointDescription->userIdentityTokens[currentIndex].policyId = UA_STRING_ALLOC(USERNAME_POLICY);
+            }
+
+            /* The standard says "the HostName specified in the Server Certificate is the
+        same as the HostName contained in the endpointUrl provided in the
+        EndpointDescription */
+            UA_String_copy(&server->config.serverCertificate, &endpointDescription->serverCertificate);
+            UA_ApplicationDescription_copy(&newApplication->description, &endpointDescription->server);
+
+
+            /* copy the discovery url only once the networlayer has been started */
+            // UA_String_copy(&server->config.networkLayers[i].discoveryUrl, &endpoint->endpointUrl);
+
+        }
+    }
+
     /* Init URLs of applications according to NLs ones */
     for(size_t i = 0; i < server->applicationsSize; i++) {
         UA_Application* application = &server->applications[i];
@@ -617,8 +696,8 @@ UA_StatusCode UA_Server_run_startup(UA_Server *server) {
             /* Init URLs of endpoints according to NLs ones */
             /* Every application has already server->config.networkLayersSize many endpoints */
             UA_String_copy(&application->description.discoveryUrls[j], &application->endpoints[j]->description.endpointUrl);
-            //UA_String endpointSuffx = UA_STRING("/endpoint");
-            //UA_String_append(&application->endpoints[j]->description.endpointUrl, &endpointSuffx);
+            UA_String endpointSuffx = UA_STRING("/endpoint");
+            UA_String_append(&application->endpoints[j]->description.endpointUrl, &endpointSuffx);
         }
     }
 
