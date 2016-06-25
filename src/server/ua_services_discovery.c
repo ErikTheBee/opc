@@ -98,7 +98,7 @@ void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEn
 
     size_t k = 0;
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
-    for(size_t j = 0; j < application->endpointsSize && retval == UA_STATUSCODE_GOOD; j++) {
+    for(size_t j = 0; j < server->endpointsSize && retval == UA_STATUSCODE_GOOD; j++) {
         if(!relevant_endpoints[j])
             continue;
         retval = UA_EndpointDescription_copy(&application->endpoints[j]->description, &response->endpoints[k]);
