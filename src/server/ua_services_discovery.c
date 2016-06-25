@@ -58,8 +58,13 @@ void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEn
     }
 
     if(!application){
-        response->endpointsSize = 0;
-        return;
+        //application uri not found - try to fallback to the first one
+        if(server->applicationsSize > 0){
+            application = &server->applications[0];
+        }else{
+            response->endpointsSize = 0;
+            return;
+        }
     }
 
     /* test if the supported binary profile shall be returned */
@@ -99,7 +104,7 @@ void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEn
     size_t k = 0;
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
     for(size_t j = 0; j < server->endpointsSize && retval == UA_STATUSCODE_GOOD; j++) {
-        if(!relevant_endpoints[j])
+        if(relevant_endpoints[j] == false)
             continue;
         retval = UA_EndpointDescription_copy(&application->endpoints[j]->description, &response->endpoints[k]);
         if(retval != UA_STATUSCODE_GOOD)
