@@ -49,8 +49,8 @@ struct UA_Application {
 struct UA_Server {
     /* Meta */
     UA_DateTime startTime;
-    size_t endpointDescriptionsSize;
-    UA_EndpointDescription *endpointDescriptions;
+    //size_t endpointDescriptionsSize;
+    //UA_EndpointDescription *endpointDescriptions;
 
     size_t endpointsSize;
     UA_Endpoint *endpoints;

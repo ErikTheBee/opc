@@ -253,8 +253,6 @@ void UA_Server_delete(UA_Server *server) {
     UA_Server_deleteExternalNamespaces(server);
 #endif
     UA_Array_delete(server->namespaces, server->namespacesSize, &UA_TYPES[UA_TYPES_STRING]);
-    UA_Array_delete(server->endpointDescriptions, server->endpointDescriptionsSize,
-                    &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
 
     //todo: rework
     for(size_t i=0;i<server->applicationsSize;i++){
