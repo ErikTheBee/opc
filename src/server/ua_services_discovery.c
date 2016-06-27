@@ -73,6 +73,11 @@ void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEn
         }
     }
 
+    if(application->endpointsSize == 0){
+        response->endpointsSize = 0;
+        return;
+    }
+
     /* test if the supported binary profile shall be returned */
 #ifdef NO_ALLOCA
     UA_Boolean relevant_endpoints[application->endpointsSize];

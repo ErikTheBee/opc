@@ -679,6 +679,19 @@ UA_StatusCode UA_Server_run_startup(UA_Server *server) {
     /* Init URLs of applications according to NLs ones */
     for(size_t i = 0; i < server->applicationsSize; i++) {
         UA_Application* application = &server->applications[i];
+
+        //TODO: more complex logic is needed here to adjust urls according to NLs
+        //TODO: we need to discreminate between relative and absolut urls
+        UA_String suffix;
+        if(application->description.discoveryUrlsSize == 0){ //no discoverUrls - use default suffix
+            suffix = UA_STRING_ALLOC("/open62541");
+        }else if(application->description.discoveryUrlsSize == 1){  //one discoveryUrl - treat first one as suffix
+            UA_String_copy(&application->description.discoveryUrls[0], &suffix);
+            application->description.discoveryUrlsSize = 0;
+            UA_String_delete(&application->description.discoveryUrls[0]);
+            application->description.discoveryUrls = NULL;
+        }
+
         UA_String *disc = UA_realloc(application->description.discoveryUrls, sizeof(UA_String) *
                 (application->description.discoveryUrlsSize + server->config.networkLayersSize));
         if(!disc) {
@@ -695,7 +708,7 @@ UA_StatusCode UA_Server_run_startup(UA_Server *server) {
             UA_ServerNetworkLayer *nl = &server->config.networkLayers[j];
             UA_String_init(&application->description.discoveryUrls[j]);
             UA_String_copy(&nl->discoveryUrl, &application->description.discoveryUrls[j]);
-            UA_String_append(&application->description.discoveryUrls[j], &server->applications[i].suffix);
+            UA_String_append(&application->description.discoveryUrls[j], &suffix);
 
             /* Init URLs of endpoints according to NLs ones */
             /* Every application has already server->config.networkLayersSize many endpoints */
@@ -703,8 +716,9 @@ UA_StatusCode UA_Server_run_startup(UA_Server *server) {
             UA_String endpointSuffx = UA_STRING("/endpoint");
             UA_String_append(&application->endpoints[j]->description.endpointUrl, &endpointSuffx);
         }
-    }
 
+        UA_String_deleteMembers(&suffix);
+    }
 
     return result;
 }

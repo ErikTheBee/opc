@@ -41,7 +41,6 @@ struct UA_Endpoint {
 
 struct UA_Application {
     UA_ApplicationDescription description;
-    UA_String suffix;
 
     size_t  endpointsSize;
     UA_Endpoint** endpoints;

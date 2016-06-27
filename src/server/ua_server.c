@@ -259,7 +259,6 @@ void UA_Server_delete(UA_Server *server) {
     //todo: rework
     for(size_t i=0;i<server->applicationsSize;i++){
         UA_ApplicationDescription_deleteMembers(&server->applications[i].description);
-        UA_String_deleteMembers(&server->applications[i].suffix);
         UA_free(server->applications[i].endpoints);
     }
     UA_free(server->applications);
@@ -455,7 +454,7 @@ addVariableTypeNode_subtype(UA_Server *server, char* name, UA_UInt32 variabletyp
     addNodeInternal(server, (UA_Node*)variabletype, UA_NODEID_NUMERIC(0, parent), nodeIdHasSubType);
 }
 
-static UA_StatusCode UA_Server_addApplication(UA_Server *server, UA_ApplicationDescription* description, UA_String urlSuffix){
+UA_StatusCode UA_Server_addApplication(UA_Server *server, UA_ApplicationDescription* description){
     //adding application to the server
     void* temp = UA_realloc(server->applications,sizeof(UA_Application)*(++server->applicationsSize));
     if(!temp)
@@ -466,8 +465,6 @@ static UA_StatusCode UA_Server_addApplication(UA_Server *server, UA_ApplicationD
     newApplication->endpoints = NULL;
     UA_ApplicationDescription_init(&newApplication->description);
     UA_ApplicationDescription_copy(description, &(newApplication->description));
-    UA_String_init(&newApplication->suffix);
-    UA_String_copy(&urlSuffix, &newApplication->suffix);
 
     return UA_STATUSCODE_GOOD;
 }
@@ -505,53 +502,7 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     UA_String_copy(&server->config.applicationDescription.applicationUri, &server->namespaces[1]);
     server->namespacesSize = 2;
 
-    UA_Server_addApplication(server,&server->config.applicationDescription, UA_STRING("/default"));
-
-    UA_Server_addApplication(server,&server->config.applicationDescription, UA_STRING("/default2"));
-/*
-    server->endpointDescriptions = UA_Array_new(server->config.networkLayersSize,
-                                                &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
-    server->endpointDescriptionsSize = server->config.networkLayersSize;
-    for(size_t i = 0; i < server->config.networkLayersSize; i++) {
-        UA_EndpointDescription *endpoint = &server->endpointDescriptions[i];
-        endpoint->securityMode = UA_MESSAGESECURITYMODE_NONE;
-        endpoint->securityPolicyUri =
-            UA_STRING_ALLOC("http://opcfoundation.org/UA/SecurityPolicy#None");
-        endpoint->transportProfileUri =
-            UA_STRING_ALLOC("http://opcfoundation.org/UA-Profile/Transport/uatcp-uasc-uabinary");
-
-        size_t policies = 0;
-        if(server->config.enableAnonymousLogin)
-            policies++;
-        if(server->config.enableUsernamePasswordLogin)
-            policies++;
-        endpoint->userIdentityTokensSize = policies;
-        endpoint->userIdentityTokens = UA_Array_new(policies, &UA_TYPES[UA_TYPES_USERTOKENPOLICY]);
-
-        size_t currentIndex = 0;
-        if(server->config.enableAnonymousLogin) {
-            UA_UserTokenPolicy_init(&endpoint->userIdentityTokens[currentIndex]);
-            endpoint->userIdentityTokens[currentIndex].tokenType = UA_USERTOKENTYPE_ANONYMOUS;
-            endpoint->userIdentityTokens[currentIndex].policyId = UA_STRING_ALLOC(ANONYMOUS_POLICY);
-            currentIndex++;
-        }
-        if(server->config.enableUsernamePasswordLogin) {
-            UA_UserTokenPolicy_init(&endpoint->userIdentityTokens[currentIndex]);
-            endpoint->userIdentityTokens[currentIndex].tokenType = UA_USERTOKENTYPE_USERNAME;
-            endpoint->userIdentityTokens[currentIndex].policyId = UA_STRING_ALLOC(USERNAME_POLICY);
-        }
-*/
-        /* The standard says "the HostName specified in the Server Certificate is the
-           same as the HostName contained in the endpointUrl provided in the
-           EndpointDescription */
-//        UA_String_copy(&server->config.serverCertificate, &endpoint->serverCertificate);
-//        UA_ApplicationDescription_copy(&server->config.applicationDescription, &endpoint->server);
-
-
-
-        /* copy the discovery url only once the networlayer has been started */
-        // UA_String_copy(&server->config.networkLayers[i].discoveryUrl, &endpoint->endpointUrl);
-//    }
+    UA_Server_addApplication(server,&server->config.applicationDescription);
 
     UA_SecureChannelManager_init(&server->secureChannelManager, server);
     UA_SessionManager_init(&server->sessionManager, server);
