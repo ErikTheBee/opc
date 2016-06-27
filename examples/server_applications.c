@@ -75,6 +75,7 @@ int main(void) {
     UA_Server_addVariableNode(server, myIntegerNodeId, parentNodeId,
                               parentReferenceNodeId, myIntegerName,
                               UA_NODEID_NULL, attr, NULL, NULL);
+
     UA_StatusCode retval = UA_Server_run(server, &running);
     UA_Server_delete(server);
     nl.deleteMembers(&nl);

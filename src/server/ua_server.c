@@ -257,9 +257,11 @@ void UA_Server_delete(UA_Server *server) {
     //todo: rework
     for(size_t i=0;i<server->applicationsSize;i++){
         UA_ApplicationDescription_deleteMembers(&server->applications[i].description);
+        UA_Array_delete(server->applications[i].availableNamespaces,server->applications[i].availableNamespacesSize,&UA_TYPES[UA_TYPES_UINT16]);
         UA_free(server->applications[i].endpoints);
     }
     UA_free(server->applications);
+
 
     //todo: rework
     for(size_t i=0;i<server->endpointsSize;i++){
