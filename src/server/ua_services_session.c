@@ -9,12 +9,41 @@ void Service_CreateSession(UA_Server *server, UA_SecureChannel *channel,
         response->responseHeader.serviceResult = UA_STATUSCODE_BADSECURECHANNELIDINVALID;
         return;
     }
-    response->responseHeader.serviceResult =
-        UA_Array_copy(server->endpointDescriptions, server->endpointDescriptionsSize,
-                      (void**)&response->serverEndpoints, &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
+
+    UA_Endpoint* endpoint = NULL;
+    for(size_t i=0; i<server->applicationsSize && !endpoint; i++){
+        UA_Application* application = &server->applications[i];
+        for(size_t j=0; j<application->endpointsSize; j++){
+            UA_Endpoint* temp_endpoint = application->endpoints[j];
+            if(UA_String_equal(&request->endpointUrl, &temp_endpoint->description.endpointUrl)){
+                endpoint = temp_endpoint;
+                break;
+            }
+        }
+    }
+
+    if(!endpoint){
+        response->responseHeader.serviceResult = UA_STATUSCODE_BADTCPENDPOINTURLINVALID;
+        return;
+    }
+    UA_Application* application = endpoint->application;
+
+    response->serverEndpoints = UA_malloc(sizeof(UA_EndpointDescription) * application->endpointsSize);
+
+    if(!response->serverEndpoints){
+        response->responseHeader.serviceResult = UA_STATUSCODE_BADOUTOFMEMORY;
+        return;
+    }
+
+    for(size_t i=0;i<application->endpointsSize;i++){
+        response->responseHeader.serviceResult =
+                UA_copy(&application->endpoints[i]->description, &response->serverEndpoints[i], &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
+    }
+
     if(response->responseHeader.serviceResult != UA_STATUSCODE_GOOD)
         return;
-    response->serverEndpointsSize = server->endpointDescriptionsSize;
+
+    response->serverEndpointsSize = application->endpointsSize;
 
     UA_Session *newSession;
     response->responseHeader.serviceResult =
@@ -24,14 +53,17 @@ void Service_CreateSession(UA_Server *server, UA_SecureChannel *channel,
         return;
     }
 
+    //binding session to endpoint
+    newSession->endpoint = endpoint;
+
     newSession->maxResponseMessageSize = request->maxResponseMessageSize;
     newSession->maxRequestMessageSize = channel->connection->localConf.maxMessageSize;
     response->sessionId = newSession->sessionId;
     response->revisedSessionTimeout = (UA_Double)newSession->timeout;
     response->authenticationToken = newSession->authenticationToken;
     response->responseHeader.serviceResult = UA_String_copy(&request->sessionName, &newSession->sessionName);
-    if(server->endpointDescriptionsSize > 0)
-        response->responseHeader.serviceResult |= UA_ByteString_copy(&server->endpointDescriptions->serverCertificate,
+    if(endpoint)
+        response->responseHeader.serviceResult |= UA_ByteString_copy(&endpoint->description.serverCertificate,
                                &response->serverCertificate);
     if(response->responseHeader.serviceResult != UA_STATUSCODE_GOOD) {
         UA_SessionManager_removeSession(&server->sessionManager, &newSession->authenticationToken);

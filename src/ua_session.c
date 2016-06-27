@@ -36,6 +36,7 @@ void UA_Session_init(UA_Session *session) {
     session->lastSubscriptionID = 0;
     SIMPLEQ_INIT(&session->responseQueue);
 #endif
+    session->endpoint = NULL;
 }
 
 void UA_Session_deleteMembersCleanup(UA_Session *session, UA_Server* server) {

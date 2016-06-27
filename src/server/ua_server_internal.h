@@ -33,9 +33,6 @@ typedef struct {
 } UA_Worker;
 #endif
 
-typedef struct UA_Endpoint UA_Endpoint;
-typedef struct UA_Application UA_Application;
-
 struct UA_Endpoint {
     UA_EndpointDescription description;
 

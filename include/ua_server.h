@@ -682,6 +682,12 @@ UA_CallMethodResult UA_EXPORT
 UA_Server_call(UA_Server *server, const UA_CallMethodRequest *request);
 #endif
 
+/**
+ * Opaque Types for internal purposes
+ * ---------------------------------- */
+typedef struct UA_Endpoint UA_Endpoint;
+typedef struct UA_Application UA_Application;
+
 #ifdef __cplusplus
 }
 #endif

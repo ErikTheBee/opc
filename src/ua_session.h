@@ -43,6 +43,7 @@ struct UA_Session {
     LIST_HEAD(UA_ListOfUASubscriptions, UA_Subscription) serverSubscriptions;
     SIMPLEQ_HEAD(UA_ListOfQueuedPublishResponses, UA_PublishResponseEntry) responseQueue;
 #endif
+    UA_Endpoint* endpoint; //actually a UA_Endpoint*, but i did not want to create a dependency to server files
 };
 
 /* Local access to the services (for startup and maintenance) uses this Session

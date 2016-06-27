@@ -53,6 +53,12 @@ void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEn
                 break;
             }
         }
+        for(size_t j=0;j<temp_application->endpointsSize;j++){
+            if(UA_String_equal(&request->endpointUrl, &temp_application->endpoints[j]->description.endpointUrl)){
+                application = temp_application;
+                break;
+            }
+        }
         if(application)
             break;
     }
@@ -73,9 +79,9 @@ void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEn
 #else
     UA_Boolean *relevant_endpoints = UA_alloca(sizeof(UA_Byte) * application->endpointsSize);
 #endif
+    memset(relevant_endpoints,0,sizeof(UA_Byte) * application->endpointsSize); //to fix clang false positive
     size_t relevant_count = 0;
     for(size_t j = 0; j < application->endpointsSize; j++) {
-        relevant_endpoints[j] = false;
         if(request->profileUrisSize == 0) {
             relevant_endpoints[j] = true;
             relevant_count++;
@@ -103,7 +109,7 @@ void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEn
 
     size_t k = 0;
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
-    for(size_t j = 0; j < server->endpointsSize && retval == UA_STATUSCODE_GOOD; j++) {
+    for(size_t j = 0; j < application->endpointsSize && retval == UA_STATUSCODE_GOOD; j++) {
         if(relevant_endpoints[j] == false)
             continue;
         retval = UA_EndpointDescription_copy(&application->endpoints[j]->description, &response->endpoints[k]);
