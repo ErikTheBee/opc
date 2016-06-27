@@ -451,8 +451,8 @@ addVariableTypeNode_subtype(UA_Server *server, char* name, UA_UInt32 variabletyp
         createVariableTypeNode(server, name, variabletypeid, parent, abstract);
     addNodeInternal(server, (UA_Node*)variabletype, UA_NODEID_NUMERIC(0, parent), nodeIdHasSubType);
 }
-
-UA_StatusCode UA_Server_addApplication(UA_Server *server, UA_ApplicationDescription* description){
+UA_StatusCode
+UA_Server_addApplication(UA_Server *server, UA_ApplicationDescription* description, UA_UInt16 *availableNamespaces, size_t availableNamespacesSize){
     //adding application to the server
     void* temp = UA_realloc(server->applications,sizeof(UA_Application)*(++server->applicationsSize));
     if(!temp)
@@ -464,7 +464,10 @@ UA_StatusCode UA_Server_addApplication(UA_Server *server, UA_ApplicationDescript
     UA_ApplicationDescription_init(&newApplication->description);
     UA_ApplicationDescription_copy(description, &(newApplication->description));
 
-    return UA_STATUSCODE_GOOD;
+    UA_StatusCode retval = UA_Array_copy(availableNamespaces, availableNamespacesSize,(void**) &newApplication->availableNamespaces,&UA_TYPES[UA_TYPES_UINT16]);
+    if(retval==UA_STATUSCODE_GOOD)
+        newApplication->availableNamespacesSize = availableNamespacesSize;
+    return retval;
 }
 
 UA_Server * UA_Server_new(const UA_ServerConfig config) {
@@ -500,8 +503,11 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     UA_String_copy(&server->config.applicationDescription.applicationUri, &server->namespaces[1]);
     server->namespacesSize = 2;
 
-    UA_Server_addApplication(server,&server->config.applicationDescription);
-
+    UA_UInt16 *ns = UA_Array_new(2,&UA_TYPES[UA_TYPES_UINT16]);
+    ns[0] = 0;
+    ns[1] = 1;
+    UA_Server_addApplication(server,&server->config.applicationDescription,ns,2);
+    UA_Array_delete(ns,2,&UA_TYPES[UA_TYPES_UINT16]);
     UA_SecureChannelManager_init(&server->secureChannelManager, server);
     UA_SessionManager_init(&server->sessionManager, server);
 

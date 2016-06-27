@@ -121,7 +121,10 @@ argConformsToDefinition(UA_Server *server, const UA_VariableNode *argRequirement
 void
 Service_Call_single(UA_Server *server, UA_Session *session, const UA_CallMethodRequest *request,
                     UA_CallMethodResult *result) {
-
+    if(isNamespaceAccessible(server, session, &request->objectId)!=UA_STATUSCODE_GOOD){
+        result->statusCode = UA_STATUSCODE_BADNODEIDUNKNOWN;
+        return;
+    }
     /* Get/verify the method node */
     const UA_MethodNode *methodCalled =
         (const UA_MethodNode*)UA_NodeStore_get(server->nodestore, &request->methodId);

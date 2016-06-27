@@ -44,6 +44,8 @@ struct UA_Application {
 
     size_t  endpointsSize;
     UA_Endpoint** endpoints;
+    UA_UInt16* availableNamespaces;
+    size_t availableNamespacesSize;
 };
 
 struct UA_Server {

@@ -122,6 +122,18 @@ static void forceVariantSetScalar(UA_Variant *v, const void *p, const UA_DataTyp
     v->storageType = UA_VARIANT_DATA_NODELETE;
 }
 
+UA_StatusCode isNamespaceAccessible(UA_Server *server, UA_Session *session,const UA_NodeId *nodeId){
+    UA_NodeId tmpId = UA_NODEID_NUMERIC(0,1);
+    if(UA_NodeId_equal(&session->sessionId,&tmpId))
+        return UA_STATUSCODE_GOOD;
+    for(size_t i =0;i<session->endpoint->application->availableNamespacesSize;i++){
+        if(nodeId->namespaceIndex == session->endpoint->application->availableNamespaces[i]){
+            return UA_STATUSCODE_GOOD;
+        }
+    }
+    return UA_STATUSCODE_BADNOTSUPPORTED;
+}
+
 static UA_StatusCode
 getVariableNodeValue(UA_Server *server, UA_Session *session, const UA_VariableNode *vn,
                      const UA_TimestampsToReturn timestamps, const UA_ReadValueId *id, UA_DataValue *v) {
@@ -228,6 +240,12 @@ static const UA_String binEncoding = {sizeof("DefaultBinary")-1, (UA_Byte*)"Defa
 void Service_Read_single(UA_Server *server, UA_Session *session,
                          const UA_TimestampsToReturn timestamps,
                          const UA_ReadValueId *id, UA_DataValue *v) {
+
+    if(isNamespaceAccessible(server, session, &id->nodeId)!=UA_STATUSCODE_GOOD){
+        v->hasStatus = true;
+        v->status = UA_STATUSCODE_BADNODEIDUNKNOWN;
+        return;
+    }
     UA_LOG_DEBUG_SESSION(server->config.logger, session, "Read the attribute %i", id->attributeId);
     if(id->dataEncoding.name.length > 0 &&
        !UA_String_equal(&binEncoding, &id->dataEncoding.name)) {
@@ -722,6 +740,9 @@ CopyAttributeIntoNode(UA_Server *server, UA_Session *session,
 }
 
 UA_StatusCode Service_Write_single(UA_Server *server, UA_Session *session, const UA_WriteValue *wvalue) {
+    if(isNamespaceAccessible(server, session, &wvalue->nodeId)!=UA_STATUSCODE_GOOD){
+        return UA_STATUSCODE_BADWRITENOTSUPPORTED;
+    }
     return UA_Server_editNode(server, session, &wvalue->nodeId, (UA_EditNodeCallback)CopyAttributeIntoNode, wvalue);
 }
 

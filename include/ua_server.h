@@ -691,7 +691,7 @@ UA_Server_call(UA_Server *server, const UA_CallMethodRequest *request);
  * In case multiple dicoveryUrls are given the behavior is unspecified
  **/
 UA_StatusCode UA_EXPORT
-UA_Server_addApplication(UA_Server *server, UA_ApplicationDescription* description);
+UA_Server_addApplication(UA_Server *server, UA_ApplicationDescription* description, UA_UInt16 *availableNamespaces, size_t availableNamespacesSize);
 
 /**
  * Opaque Types for internal purposes

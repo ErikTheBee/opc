@@ -337,6 +337,11 @@ void Service_DeleteSubscriptions(UA_Server *server, UA_Session *session,
 
 /* Not Implemented: Service_TransferSubscription */
 
+
+
+/* A simplified way to check namespace access */
+UA_StatusCode isNamespaceAccessible(UA_Server *server, UA_Session *session,const UA_NodeId *nodeId);
+
 #endif
 
 #ifdef __cplusplus

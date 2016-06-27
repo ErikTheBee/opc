@@ -291,6 +291,8 @@ Service_Browse_single(UA_Server *server, UA_Session *session, struct Continuatio
                                relevant_refs, relevant_refs_size, &isExternal);
         if(!current)
             continue;
+        if(isNamespaceAccessible(server, session,&current->nodeId))
+            continue;
 
         if(skipped < continuationIndex) {
             skipped++;
