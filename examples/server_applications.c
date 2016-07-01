@@ -177,6 +177,33 @@ int main(void) {
     UA_Server_addNamespace(server,"component1");
     UA_Server_addNamespace(server,"component2");
     UA_Server_addNamespace(server,"component3");
+
+    UA_ApplicationDescription app0;
+    UA_ApplicationDescription_copy(&config.applicationDescription, &app0);
+    UA_String_deleteMembers(&app0.applicationName.text);
+    app0.applicationName.text = UA_STRING_ALLOC("Engineering");
+    app0.discoveryUrlsSize = 1;
+    app0.discoveryUrls = UA_Array_new(1, &UA_TYPES[UA_TYPES_STRING]);
+    app0.discoveryUrls[0] = UA_STRING_ALLOC("/app0");
+    UA_UInt16 ns[4];
+    ns[0] = 0;
+    ns[1] = 1;
+    ns[2] = 2;
+    ns[3] = 3;
+    ns[4] = 4;
+    UA_Server_addApplication(server,&app0,ns,4);
+
+    UA_ApplicationDescription app1;
+    UA_ApplicationDescription_copy(&config.applicationDescription, &app1);
+    UA_String_deleteMembers(&app1.applicationName.text);
+    app1.applicationName.text = UA_STRING_ALLOC("Message");
+    app1.discoveryUrlsSize = 1;
+    app1.discoveryUrls = UA_Array_new(1, &UA_TYPES[UA_TYPES_STRING]);
+    app1.discoveryUrls[0] = UA_STRING_ALLOC("/app1");
+    ns[0] = 0;
+    ns[1] = 1;
+    UA_Server_addApplication(server,&app1,ns,2);
+
     UA_ApplicationDescription app2;
     UA_ApplicationDescription_copy(&config.applicationDescription, &app2);
     UA_String_deleteMembers(&app2.applicationName.text);
@@ -184,7 +211,6 @@ int main(void) {
     app2.discoveryUrlsSize = 1;
     app2.discoveryUrls = UA_Array_new(1, &UA_TYPES[UA_TYPES_STRING]);
     app2.discoveryUrls[0] = UA_STRING_ALLOC("/app2");
-    UA_UInt16 ns[3];
     ns[0] = 0;
     ns[1] = 1;
     ns[2] = 2;
@@ -197,11 +223,10 @@ int main(void) {
     app3.discoveryUrlsSize = 1;
     app3.discoveryUrls = UA_Array_new(1, &UA_TYPES[UA_TYPES_STRING]);
     app3.discoveryUrls[0] = UA_STRING_ALLOC("/app3");
-    UA_UInt16 ns1[3];
-    ns1[0] = 0;
-    ns1[1] = 1;
-    ns1[2] = 3;
-    UA_Server_addApplication(server,&app3,ns1,3);
+    ns[0] = 0;
+    ns[1] = 1;
+    ns[2] = 3;
+    UA_Server_addApplication(server,&app3,ns,3);
 
     UA_ApplicationDescription app4;
     UA_ApplicationDescription_copy(&config.applicationDescription, &app4);
@@ -210,11 +235,10 @@ int main(void) {
     app4.discoveryUrlsSize = 1;
     app4.discoveryUrls = UA_Array_new(1, &UA_TYPES[UA_TYPES_STRING]);
     app4.discoveryUrls[0] = UA_STRING_ALLOC("/app4");
-    UA_UInt16 ns2[3];
-    ns2[0] = 0;
-    ns2[1] = 1;
-    ns2[2] = 4;
-    UA_Server_addApplication(server,&app4,ns2,3);
+    ns[0] = 0;
+    ns[1] = 1;
+    ns[2] = 4;
+    UA_Server_addApplication(server,&app4,ns,3);
 
 
 
@@ -228,7 +252,7 @@ int main(void) {
         UA_ObjectAttributes objAtrPeerManager;
         UA_ObjectAttributes_init(&objAtrPeerManager);
         UA_NodeId peerManagerNodeId    = UA_NODEID_NUMERIC(1, 1000000);
-        char* peerManager = "PeerManager";
+        char* peerManager = "LMSR";
         createComponent(&objAtrPeerManager, peerManagerNodeId, peerManager, server,
                 parentNodeId);
         /*create method node for property creation */

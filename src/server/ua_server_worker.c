@@ -667,7 +667,6 @@ UA_StatusCode UA_Server_run_startup(UA_Server *server) {
         same as the HostName contained in the endpointUrl provided in the
         EndpointDescription */
             UA_String_copy(&server->config.serverCertificate, &endpointDescription->serverCertificate);
-            UA_ApplicationDescription_copy(&newApplication->description, &endpointDescription->server);
 
 
             /* copy the discovery url only once the networlayer has been started */
@@ -715,6 +714,8 @@ UA_StatusCode UA_Server_run_startup(UA_Server *server) {
             UA_String_copy(&application->description.discoveryUrls[j], &application->endpoints[j]->description.endpointUrl);
             UA_String endpointSuffx = UA_STRING("/endpoint");
             UA_String_append(&application->endpoints[j]->description.endpointUrl, &endpointSuffx);
+
+            UA_ApplicationDescription_copy(&application->description, &application->endpoints[j]->description.server);
         }
 
         UA_String_deleteMembers(&suffix);
