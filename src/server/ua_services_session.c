@@ -34,7 +34,7 @@ void Service_CreateSession(UA_Server *server, UA_SecureChannel *channel,
         return;
     }
 
-    UA_Application* application = application = endpoint->application;
+    UA_Application* application = endpoint->application;
 
     response->serverEndpoints = UA_malloc(sizeof(UA_EndpointDescription) * application->endpointsSize);
 
