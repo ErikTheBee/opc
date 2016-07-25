@@ -29,11 +29,26 @@ static UA_ByteString readFile(char *filename) {
     return buf;
 }
 
+static UA_StatusCode
+st(UA_ServerNetworkLayer *nl, UA_Logger logger) {
+    return UA_STATUSCODE_GOOD;
+}
+
 START_TEST(processMessage) {
     UA_Connection c = createDummyConnection();
     UA_ServerConfig config = UA_ServerConfig_standard;
     config.logger = UA_Log_Stdout;
+
+    /* needing a networklayer for endpoint initalization */
+    UA_ServerNetworkLayer nl;
+    config.networkLayers = &nl;
+    config.networkLayersSize = 1;
     UA_Server *server = UA_Server_new(config);
+    nl.start = &st;
+    nl.discoveryUrl = UA_STRING_ALLOC("opc.tcp://localhost:16664");
+
+    UA_Server_run_startup(server);
+
     for(size_t i = 0; i < files; i++) {
         UA_ByteString msg = readFile(filenames[i]);
         UA_Boolean reallocated;

@@ -705,7 +705,8 @@ UA_StatusCode UA_Server_run_startup(UA_Server *server) {
             /* Set application discoveryUrl using its prefix */
             UA_ServerNetworkLayer *nl = &server->config.networkLayers[j];
             UA_String_init(&application->description.discoveryUrls[j]);
-            UA_String_copy(&nl->discoveryUrl, &application->description.discoveryUrls[j]);
+            if(nl->discoveryUrl.data)
+                UA_String_copy(&nl->discoveryUrl, &application->description.discoveryUrls[j]);
             UA_String_append(&application->description.discoveryUrls[j], &suffix);
 
             /* Init URLs of endpoints according to NLs ones */

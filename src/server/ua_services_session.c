@@ -25,10 +25,11 @@ void Service_CreateSession(UA_Server *server, UA_SecureChannel *channel,
 
 
     if(!endpoint && server->applicationsSize>0 && server->applications[0].endpointsSize>0){
-        //response->responseHeader.serviceResult = UA_STATUSCODE_BADTCPENDPOINTURLINVALID;
-        //return;
         //no endpoint matched - attach to the first one
         endpoint = server->applications[0].endpoints[0];
+    }else{
+        response->responseHeader.serviceResult = UA_STATUSCODE_BADTCPENDPOINTURLINVALID;
+        return;
     }
 
     UA_Application* application = application = endpoint->application;
