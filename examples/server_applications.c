@@ -8,11 +8,13 @@
 #include <stdio.h>
 #include <signal.h>
 #include <stdlib.h>
+
 #ifdef UA_NO_AMALGAMATION
 # include "ua_types.h"
 # include "ua_server.h"
 # include "ua_config_standard.h"
-# include "networklayer_tcp.h"
+# include "ua_network_tcp.h"
+# include "ua_log_stdout.h"
 #else
 # include "open62541.h"
 #endif

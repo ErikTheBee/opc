@@ -20,10 +20,10 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
-#include <stdbool.h>
 #include "ua_config.h"
 #include "ua_constants.h"
+#include <stdint.h>
+#include <stdbool.h>
 
 /**
  * Data Types
@@ -276,6 +276,8 @@ typedef struct {
 
 UA_Boolean UA_EXPORT UA_Guid_equal(const UA_Guid *g1, const UA_Guid *g2);
 
+UA_EXPORT extern const UA_Guid UA_GUID_NULL;
+
 /**
  * ByteString
  * ^^^^^^^^^^
@@ -439,8 +441,7 @@ typedef struct {
 
 static UA_INLINE UA_Boolean
 UA_QualifiedName_isNull(const UA_QualifiedName *q) {
-    return (q->namespaceIndex == 0 &&
-            q->name.length == 0);
+    return (q->namespaceIndex == 0 && q->name.length == 0);
 }
 
 static UA_INLINE UA_QualifiedName
@@ -506,6 +507,8 @@ typedef struct {
 } UA_ExtensionObject;
 
 /**
+ * .. _variant:
+ *
  * Variant
  * ^^^^^^^
  * Variants may contain data of any type. See the Section `Generic Type
@@ -613,9 +616,9 @@ typedef struct {
 UA_StatusCode UA_EXPORT
 UA_Variant_copyRange(const UA_Variant *src, UA_Variant *dst, const UA_NumericRange range);
 
-/* Insert a range of data into an existing variant. The data array can't be reused afterwards if it
- * contains types without a fixed size (e.g. strings) since the members are moved into the variant
- * and take on its lifecycle.
+/* Insert a range of data into an existing variant. The data array can't be
+ * reused afterwards if it contains types without a fixed size (e.g. strings)
+ * since the members are moved into the variant and take on its lifecycle.
  *
  * @param v The variant
  * @param dataArray The data array. The type must match the variant

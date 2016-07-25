@@ -20,7 +20,9 @@ if(UA_ENABLE_MULTITHREADING)
     list(APPEND LIBS urcu-cds urcu urcu-common)
 endif()
 
-add_definitions(-Wno-sign-conversion)
+if(CMAKE_COMPILER_IS_GNUCC OR "x${CMAKE_C_COMPILER_ID}" STREQUAL "xClang")
+    add_definitions(-Wno-sign-conversion)
+endif()
 
 # the unit test are built directly on the open62541 object files. so they can
 # access symbols that are hidden/not exported to the shared library
@@ -36,10 +38,6 @@ add_test(memory ${CMAKE_CURRENT_BINARY_DIR}/check_memory)
 add_executable(check_chunking check_chunking.c $<TARGET_OBJECTS:open62541-object>)
 target_link_libraries(check_chunking ${LIBS})
 add_test(chunking ${CMAKE_CURRENT_BINARY_DIR}/check_chunking)
-
-# add_executable(check_stack check_stack.c)
-# target_link_libraries(check_stack ${LIBS})
-# add_test(stack ${CMAKE_CURRENT_BINARY_DIR}/check_stack)
 
 add_executable(check_services_view check_services_view.c $<TARGET_OBJECTS:open62541-object>)
 target_link_libraries(check_services_view ${LIBS})
@@ -64,10 +62,6 @@ add_test(session ${CMAKE_CURRENT_BINARY_DIR}/check_session)
 add_executable(check_server_userspace check_server_userspace.c $<TARGET_OBJECTS:open62541-object>)
 target_link_libraries(check_server_userspace ${LIBS})
 add_test(check_server_userspace ${CMAKE_CURRENT_BINARY_DIR}/check_server_userspace)
-
-# add_executable(check_startup check_startup.c)
-# target_link_libraries(check_startup ${LIBS})
-# add_test(startup ${CMAKE_CURRENT_BINARY_DIR}/check_startup)
 
 # test with canned interactions from files
 
@@ -117,3 +111,11 @@ add_test(check_server_binary_messages_write ${CMAKE_CURRENT_BINARY_DIR}/check_se
                                            ${CMAKE_CURRENT_BINARY_DIR}/client_CreateActivateSession.bin
                                            ${CMAKE_CURRENT_BINARY_DIR}/client_Write.bin
                                            ${CMAKE_CURRENT_BINARY_DIR}/client_CLO.bin)
+
+add_executable(check_client check_client.c $<TARGET_OBJECTS:open62541-object>)
+target_link_libraries(check_client ${LIBS})
+add_test(check_client ${CMAKE_CURRENT_BINARY_DIR}/check_client)
+
+add_executable(check_client_subscriptions check_client_subscriptions.c $<TARGET_OBJECTS:open62541-object>)
+target_link_libraries(check_client_subscriptions ${LIBS})
+add_test(check_client_subscriptions ${CMAKE_CURRENT_BINARY_DIR}/check_client_subscriptions)

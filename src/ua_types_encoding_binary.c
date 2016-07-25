@@ -966,7 +966,7 @@ DataValue_encodeBinary(UA_DataValue const *src, const UA_DataType *_) {
     return retval;
 }
 
-#define MAX_PICO_SECONDS 999
+#define MAX_PICO_SECONDS 9999
 static UA_StatusCode
 DataValue_decodeBinary(UA_DataValue *dst, const UA_DataType *_) {
     UA_Byte encodingMask;
@@ -985,15 +985,15 @@ DataValue_decodeBinary(UA_DataValue *dst, const UA_DataType *_) {
         dst->hasSourceTimestamp = true;
         retval |= DateTime_decodeBinary(&dst->sourceTimestamp);
     }
-    if(encodingMask & 0x08) {
-        dst->hasServerTimestamp = true;
-        retval |= DateTime_decodeBinary(&dst->serverTimestamp);
-    }
     if(encodingMask & 0x10) {
         dst->hasSourcePicoseconds = true;
         retval |= UInt16_decodeBinary(&dst->sourcePicoseconds, NULL);
         if(dst->sourcePicoseconds > MAX_PICO_SECONDS)
             dst->sourcePicoseconds = MAX_PICO_SECONDS;
+    }
+    if(encodingMask & 0x08) {
+        dst->hasServerTimestamp = true;
+        retval |= DateTime_decodeBinary(&dst->serverTimestamp);
     }
     if(encodingMask & 0x20) {
         dst->hasServerPicoseconds = true;

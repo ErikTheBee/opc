@@ -10,8 +10,16 @@
 #include "ua_namespaceinit_generated.h"
 #endif
 
+#ifdef UA_ENABLE_SUBSCRIPTIONS
+#include "ua_subscription.h"
+#endif
+
 #if defined(UA_ENABLE_MULTITHREADING) && !defined(NDEBUG)
 UA_THREAD_LOCAL bool rcu_locked = false;
+#endif
+
+#if defined(UA_ENABLE_METHODCALLS) && defined(UA_ENABLE_SUBSCRIPTIONS)
+UA_THREAD_LOCAL UA_Session* methodCallSession = NULL;
 #endif
 
 static const UA_NodeId nodeIdHasSubType = {
@@ -278,9 +286,9 @@ void UA_Server_delete(UA_Server *server) {
 
 /* Recurring cleanup. Removing unused and timed-out channels and sessions */
 static void UA_Server_cleanup(UA_Server *server, void *_) {
-    UA_DateTime now = UA_DateTime_now();
-    UA_SessionManager_cleanupTimedOut(&server->sessionManager, now);
-    UA_SecureChannelManager_cleanupTimedOut(&server->secureChannelManager, now);
+    UA_DateTime nowMonotonic = UA_DateTime_nowMonotonic();
+    UA_SessionManager_cleanupTimedOut(&server->sessionManager, nowMonotonic);
+    UA_SecureChannelManager_cleanupTimedOut(&server->secureChannelManager, nowMonotonic);
 }
 
 static UA_StatusCode
@@ -440,19 +448,12 @@ createVariableTypeNode(UA_Server *server, char* name, UA_UInt32 variabletypeid,
 }
 
 static void
-addVariableTypeNode_organized(UA_Server *server, char* name, UA_UInt32 variabletypeid,
-                              UA_UInt32 parent, UA_Boolean abstract) {
-    UA_VariableTypeNode *variabletype = createVariableTypeNode(server, name, variabletypeid, parent, abstract);
-    addNodeInternal(server, (UA_Node*)variabletype, UA_NODEID_NUMERIC(0, parent), nodeIdOrganizes);
-}
-
-static void
 addVariableTypeNode_subtype(UA_Server *server, char* name, UA_UInt32 variabletypeid,
                             UA_UInt32 parent, UA_Boolean abstract) {
-    UA_VariableTypeNode *variabletype =
-        createVariableTypeNode(server, name, variabletypeid, parent, abstract);
+    UA_VariableTypeNode *variabletype = createVariableTypeNode(server, name, variabletypeid, parent, abstract);
     addNodeInternal(server, (UA_Node*)variabletype, UA_NODEID_NUMERIC(0, parent), nodeIdHasSubType);
 }
+
 UA_StatusCode
 UA_Server_addApplication(UA_Server *server, UA_ApplicationDescription* description, UA_UInt16 *availableNamespaces, size_t availableNamespacesSize){
     //adding application to the server
@@ -471,6 +472,38 @@ UA_Server_addApplication(UA_Server *server, UA_ApplicationDescription* descripti
         newApplication->availableNamespacesSize = availableNamespacesSize;
     return retval;
 }
+
+#if defined(UA_ENABLE_METHODCALLS) && defined(UA_ENABLE_SUBSCRIPTIONS)
+static UA_StatusCode
+GetMonitoredItems(void *handle, const UA_NodeId objectId, size_t inputSize,
+                          const UA_Variant *input, size_t outputSize, UA_Variant *output) {
+    UA_UInt32 subscriptionId = *((UA_UInt32*)(input[0].data));
+    UA_Session* session = methodCallSession;
+    UA_Subscription* subscription = UA_Session_getSubscriptionByID(session, subscriptionId);
+    if(!subscription)
+        return UA_STATUSCODE_BADSUBSCRIPTIONIDINVALID;
+
+    UA_UInt32 sizeOfOutput = 0;
+    UA_MonitoredItem* monitoredItem;
+    LIST_FOREACH(monitoredItem, &subscription->MonitoredItems, listEntry) {
+        sizeOfOutput++;
+    }
+    if(sizeOfOutput==0)
+        return UA_STATUSCODE_GOOD;
+
+    UA_UInt32* clientHandles = UA_Array_new(sizeOfOutput, &UA_TYPES[UA_TYPES_UINT32]);
+    UA_UInt32* serverHandles = UA_Array_new(sizeOfOutput, &UA_TYPES[UA_TYPES_UINT32]);
+    UA_UInt32 i = 0;
+    LIST_FOREACH(monitoredItem, &subscription->MonitoredItems, listEntry) {
+        clientHandles[i] = monitoredItem->clientHandle;
+        serverHandles[i] = monitoredItem->itemId;
+        i++;
+    }
+    UA_Variant_setArray(&output[0], clientHandles, sizeOfOutput, &UA_TYPES[UA_TYPES_UINT32]);
+    UA_Variant_setArray(&output[1], serverHandles, sizeOfOutput, &UA_TYPES[UA_TYPES_UINT32]);
+    return UA_STATUSCODE_GOOD;
+}
+#endif
 
 UA_Server * UA_Server_new(const UA_ServerConfig config) {
     UA_Server *server = UA_calloc(1, sizeof(UA_Server));
@@ -666,7 +699,8 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     hasnotifier->nodeId.identifier.numeric = UA_NS0ID_HASNOTIFIER;
     hasnotifier->isAbstract = false;
     hasnotifier->symmetric  = false;
-    addNodeInternal(server, (UA_Node*)hasnotifier, UA_NODEID_NUMERIC(0, UA_NS0ID_HASEVENTSOURCE), nodeIdHasSubType);
+    addNodeInternal(server, (UA_Node*)hasnotifier, UA_NODEID_NUMERIC(0, UA_NS0ID_HASEVENTSOURCE),
+                    nodeIdHasSubType);
 
     UA_ReferenceTypeNode *hasorderedcomponent = UA_NodeStore_newReferenceTypeNode();
     copyNames((UA_Node*)hasorderedcomponent, "HasOrderedComponent");
@@ -674,7 +708,8 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     hasorderedcomponent->nodeId.identifier.numeric = UA_NS0ID_HASORDEREDCOMPONENT;
     hasorderedcomponent->isAbstract = false;
     hasorderedcomponent->symmetric  = false;
-    addNodeInternal(server, (UA_Node*)hasorderedcomponent, UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT), nodeIdHasSubType);
+    addNodeInternal(server, (UA_Node*)hasorderedcomponent, UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                    nodeIdHasSubType);
 
     UA_ReferenceTypeNode *hasmodelparent = UA_NodeStore_newReferenceTypeNode();
     copyNames((UA_Node*)hasmodelparent, "HasModelParent");
@@ -707,7 +742,7 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     hascause->isAbstract = false;
     hascause->symmetric  = false;
     addNodeInternal(server, (UA_Node*)hascause, nodeIdNonHierarchicalReferences, nodeIdHasSubType);
-    
+
     UA_ReferenceTypeNode *haseffect = UA_NodeStore_newReferenceTypeNode();
     copyNames((UA_Node*)haseffect, "HasEffect");
     haseffect->inverseName = UA_LOCALIZEDTEXT_ALLOC("en_US", "MayBeEffectedBy");
@@ -786,7 +821,6 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     /* Link in the bootstrapped baseobjecttype */
     addReferenceInternal(server, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTTYPESFOLDER), nodeIdOrganizes,
                          UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_BASEOBJECTTYPE), true);
-
     addObjectTypeNode(server, "ServerType", UA_NS0ID_SERVERTYPE, UA_NS0ID_BASEOBJECTTYPE, UA_NS0ID_HASSUBTYPE);
     addObjectTypeNode(server, "ServerDiagnosticsType", UA_NS0ID_SERVERDIAGNOSTICSTYPE,
                       UA_NS0ID_BASEOBJECTTYPE, UA_NS0ID_HASSUBTYPE);
@@ -840,13 +874,26 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     addDataTypeNode(server, "Enumeration", UA_NS0ID_ENUMERATION, UA_NS0ID_BASEDATATYPE);
         addDataTypeNode(server, "ServerState", UA_NS0ID_SERVERSTATE, UA_NS0ID_ENUMERATION);
 
+    /******************/
+    /* Variable Types */
+    /******************/
+
     UA_ObjectNode *variabletypes = UA_NodeStore_newObjectNode();
     copyNames((UA_Node*)variabletypes, "VariableTypes");
     variabletypes->nodeId.identifier.numeric = UA_NS0ID_VARIABLETYPESFOLDER;
     addNodeInternalWithType(server, (UA_Node*)variabletypes, UA_NODEID_NUMERIC(0, UA_NS0ID_TYPESFOLDER),
                             nodeIdOrganizes, nodeIdFolderType);
-    addVariableTypeNode_organized(server, "BaseVariableType", UA_NS0ID_BASEVARIABLETYPE,
-                                  UA_NS0ID_VARIABLETYPESFOLDER, true);
+
+    /* Bootstrap the BaseVariableType */
+    UA_VariableTypeNode *basevariabletype = UA_NodeStore_newVariableTypeNode();
+    copyNames((UA_Node*)basevariabletype, "BaseVariableType");
+    basevariabletype->nodeId.identifier.numeric = UA_NS0ID_BASEVARIABLETYPE;
+    UA_RCU_LOCK();
+    UA_NodeStore_insert(server->nodestore, (UA_Node*)basevariabletype);
+    UA_RCU_UNLOCK();
+    addReferenceInternal(server, UA_NODEID_NUMERIC(0, UA_NS0ID_VARIABLETYPESFOLDER), nodeIdOrganizes,
+                         UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_BASEVARIABLETYPE), true);
+
     addVariableTypeNode_subtype(server, "BaseDataVariableType", UA_NS0ID_BASEDATAVARIABLETYPE,
                                 UA_NS0ID_BASEVARIABLETYPE, false);
     addVariableTypeNode_subtype(server, "PropertyType", UA_NS0ID_PROPERTYTYPE,
@@ -1237,6 +1284,41 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
             nodeIdHasComponent);
     addReferenceInternal(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERREDUNDANCY_REDUNDANCYSUPPORT), nodeIdHasTypeDefinition,
                          UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_PROPERTYTYPE), true);
+
+#if defined(UA_ENABLE_METHODCALLS) && defined(UA_ENABLE_SUBSCRIPTIONS)
+    UA_Argument inputArguments;
+    UA_Argument_init(&inputArguments);
+    inputArguments.dataType = UA_TYPES[UA_TYPES_UINT32].typeId;
+    inputArguments.name = UA_STRING("SubscriptionId");
+    inputArguments.valueRank = -1; /* scalar argument */
+
+    UA_Argument outputArguments[2];
+    UA_Argument_init(&outputArguments[0]);
+    outputArguments[0].dataType = UA_TYPES[UA_TYPES_UINT32].typeId;
+    outputArguments[0].name = UA_STRING("ServerHandles");
+    outputArguments[0].valueRank = 1;
+
+    UA_Argument_init(&outputArguments[1]);
+    outputArguments[1].dataType = UA_TYPES[UA_TYPES_UINT32].typeId;
+    outputArguments[1].name = UA_STRING("ClientHandles");
+    outputArguments[1].valueRank = 1;
+
+    UA_MethodAttributes addmethodattributes;
+    UA_MethodAttributes_init(&addmethodattributes);
+    addmethodattributes.displayName = UA_LOCALIZEDTEXT("", "GetMonitoredItems");
+    addmethodattributes.executable = true;
+    addmethodattributes.userExecutable = true;
+
+    UA_Server_addMethodNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_GETMONITOREDITEMS),
+        UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER),
+        UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+        UA_QUALIFIEDNAME(0, "GetMonitoredItems"), addmethodattributes,
+        GetMonitoredItems, /* callback of the method node */
+        NULL, /* handle passed with the callback */
+        1, &inputArguments,
+        2, outputArguments,
+        NULL);
+#endif
 
     return server;
 }

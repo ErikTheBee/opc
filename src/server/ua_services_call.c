@@ -87,12 +87,14 @@ satisfySignature(UA_Server *server, const UA_Variant *var, const UA_Argument *ar
         break;
     }
 
-    /* do the array dimensions match? */
-    if(arg->arrayDimensionsSize != varDimsSize)
-        return UA_STATUSCODE_BADINVALIDARGUMENT;
-    for(size_t i = 0; i < varDimsSize; i++) {
-        if((UA_Int32)arg->arrayDimensions[i] != varDims[i])
+    /* Do the variants dimensions match? Check only if defined in the argument. */
+    if(arg->arrayDimensionsSize > 0) {
+        if(arg->arrayDimensionsSize != varDimsSize)
             return UA_STATUSCODE_BADINVALIDARGUMENT;
+        for(size_t i = 0; i < varDimsSize; i++) {
+            if((UA_Int32)arg->arrayDimensions[i] != varDims[i])
+                return UA_STATUSCODE_BADINVALIDARGUMENT;
+        }
     }
     return UA_STATUSCODE_GOOD;
 }
@@ -174,37 +176,50 @@ Service_Call_single(UA_Server *server, UA_Session *session, const UA_CallMethodR
         return;
 
     /* Verify Input Argument count, types and sizes */
-    const UA_VariableNode *inputArguments = getArgumentsVariableNode(server, methodCalled, UA_STRING("InputArguments"));
-    if(!inputArguments) {
-        result->statusCode = UA_STATUSCODE_BADINVALIDARGUMENT;
-        return;
+    //check inputAgruments only if there are any
+    if(request->inputArgumentsSize > 0){
+        const UA_VariableNode *inputArguments = getArgumentsVariableNode(server, methodCalled, UA_STRING("InputArguments"));
+
+        if(!inputArguments) {
+            result->statusCode = UA_STATUSCODE_BADINVALIDARGUMENT;
+            return;
+        }
+            result->statusCode = argConformsToDefinition(server, inputArguments, request->inputArgumentsSize,
+                                                     request->inputArguments);
+        if(result->statusCode != UA_STATUSCODE_GOOD)
+            return;
     }
-    result->statusCode = argConformsToDefinition(server, inputArguments, request->inputArgumentsSize,
-                                                 request->inputArguments);
-    if(result->statusCode != UA_STATUSCODE_GOOD)
-        return;
 
     /* Allocate the output arguments */
     const UA_VariableNode *outputArguments = getArgumentsVariableNode(server, methodCalled, UA_STRING("OutputArguments"));
     if(!outputArguments) {
-        result->statusCode = UA_STATUSCODE_BADINTERNALERROR;
-        return;
+        result->outputArgumentsSize=0;
+    }else{
+        result->outputArguments = UA_Array_new(outputArguments->value.variant.value.arrayLength, &UA_TYPES[UA_TYPES_VARIANT]);
+        if(!result->outputArguments) {
+            result->statusCode = UA_STATUSCODE_BADOUTOFMEMORY;
+            return;
+        }
+        result->outputArgumentsSize = outputArguments->value.variant.value.arrayLength;
     }
-    result->outputArguments = UA_Array_new(outputArguments->value.variant.value.arrayLength, &UA_TYPES[UA_TYPES_VARIANT]);
-    if(!result->outputArguments) {
-        result->statusCode = UA_STATUSCODE_BADOUTOFMEMORY;
-        return;
-    }
-    result->outputArgumentsSize = outputArguments->value.variant.value.arrayLength;
+
+#if defined(UA_ENABLE_METHODCALLS) && defined(UA_ENABLE_SUBSCRIPTIONS)
+    methodCallSession = session;
+#endif
 
     /* Call the method */
     result->statusCode = methodCalled->attachedMethod(methodCalled->methodHandle, withObject->nodeId,
                                                       request->inputArgumentsSize, request->inputArguments,
                                                       result->outputArgumentsSize, result->outputArguments);
+
+#if defined(UA_ENABLE_METHODCALLS) && defined(UA_ENABLE_SUBSCRIPTIONS)
+    methodCallSession = NULL;
+#endif
     /* TODO: Verify Output Argument count, types and sizes */
 }
 void Service_Call(UA_Server *server, UA_Session *session, const UA_CallRequest *request,
                   UA_CallResponse *response) {
+
     UA_LOG_DEBUG_SESSION(server->config.logger, session, "Processing CallRequest");
     if(request->methodsToCallSize <= 0) {
         response->responseHeader.serviceResult = UA_STATUSCODE_BADNOTHINGTODO;

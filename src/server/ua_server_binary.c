@@ -460,7 +460,7 @@ processRequest(UA_SecureChannel *channel, UA_Server *server, UA_UInt32 requestId
             return;
         }
         UA_Session_init(&anonymousSession);
-        anonymousSession.sessionId = UA_NODEID_NUMERIC(0,0);
+        anonymousSession.sessionId = UA_NODEID_GUID(0, UA_GUID_NULL);
         anonymousSession.channel = channel;
         session = &anonymousSession;
     }
@@ -545,19 +545,17 @@ processMSG(UA_Connection *connection, UA_Server *server, const UA_TcpMessageHead
     }
 
     /* Does the sequence number match? */
-    if(sequenceHeader.sequenceNumber != channel->receiveSequenceNumber + 1) {
-        if(channel->receiveSequenceNumber + 1 > 4294966271 && sequenceHeader.sequenceNumber < 1024) {
-            channel->receiveSequenceNumber = sequenceHeader.sequenceNumber - 1; /* Roll over */
-        } else {
-            UA_LOG_INFO_CHANNEL(server->config.logger, channel,
-                                "The sequence number was not increased by one. Got %i, expected %i",
-                                sequenceHeader.sequenceNumber, channel->receiveSequenceNumber + 1);
-            sendError(channel, msg, *offset, &UA_TYPES[UA_TYPES_SERVICEFAULT],
-                      sequenceHeader.requestId, UA_STATUSCODE_BADSECURITYCHECKSFAILED);
-            return;
-        }
+    retval = UA_SecureChannel_processSequenceNumber(sequenceHeader.sequenceNumber, channel);
+    if (retval != UA_STATUSCODE_GOOD){
+        UA_LOG_INFO_CHANNEL(server->config.logger, channel,
+                            "The sequence number was not increased by one. Got %i, expected %i",
+                            sequenceHeader.sequenceNumber, channel->receiveSequenceNumber + 1);
+        sendError(channel, msg, *offset, &UA_TYPES[UA_TYPES_SERVICEFAULT],
+                  sequenceHeader.requestId, UA_STATUSCODE_BADSECURITYCHECKSFAILED);
+        Service_CloseSecureChannel(server, channel);
+        connection->close(connection);
+        return;
     }
-    channel->receiveSequenceNumber++;
 
     /* Does the token match? */
     if(tokenId != channel->securityToken.tokenId) {
@@ -667,7 +665,7 @@ void UA_Server_processBinaryMessage(UA_Server *server, UA_Connection *connection
             return;
 
         default:
-            UA_LOG_TRACE(server->config.logger, UA_LOGCATEGORY_NETWORK, "Connection %i | Unknown request type", connection->sockfd);
+            UA_LOG_TRACE(server->config.logger, UA_LOGCATEGORY_NETWORK, "Connection %i | Unknown chunk type", connection->sockfd);
         }
 
         /* Loop to process the next message in the stream */

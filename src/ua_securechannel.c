@@ -139,9 +139,10 @@ UA_SecureChannel_sendChunk(UA_ChunkInfo *ci, UA_ByteString *dst, size_t offset) 
     dst->length += UA_SECURE_MESSAGE_HEADER_LENGTH;
     offset += UA_SECURE_MESSAGE_HEADER_LENGTH;
 
-    if(++ci->chunksSoFar > connection->remoteConf.maxChunkCount ||
-       ci->messageSizeSoFar + offset > connection->remoteConf.maxMessageSize)
-        ci->errorCode = UA_STATUSCODE_BADTCPMESSAGETOOLARGE;
+    if(ci->messageSizeSoFar + offset > connection->remoteConf.maxMessageSize)
+        ci->errorCode = UA_STATUSCODE_BADRESPONSETOOLARGE;
+    if(++ci->chunksSoFar > connection->remoteConf.maxChunkCount && connection->remoteConf.maxChunkCount > 0)
+        ci->errorCode = UA_STATUSCODE_BADRESPONSETOOLARGE;
 
     /* Prepare the chunk headers */
     UA_SecureConversationMessageHeader respHeader;
@@ -330,4 +331,17 @@ void UA_SecureChannel_removeChunk(UA_SecureChannel *channel, UA_UInt32 requestId
             return;
         }
     }
+}
+
+UA_StatusCode UA_SecureChannel_processSequenceNumber (UA_UInt32 SequenceNumber, UA_SecureChannel *channel){
+/* Does the sequence number match? */
+    if(SequenceNumber != channel->receiveSequenceNumber + 1) {
+        if(channel->receiveSequenceNumber + 1 > 4294966271 && SequenceNumber < 1024) {
+            channel->receiveSequenceNumber = SequenceNumber - 1; /* Roll over */
+        } else {
+            return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
+        }
+    }
+    channel->receiveSequenceNumber++;
+    return UA_STATUSCODE_GOOD;
 }

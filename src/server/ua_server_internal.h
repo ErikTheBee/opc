@@ -48,6 +48,11 @@ struct UA_Application {
     size_t availableNamespacesSize;
 };
 
+#if defined(UA_ENABLE_METHODCALLS) && defined(UA_ENABLE_SUBSCRIPTIONS)
+/* Internally used context to a session 'context' of the current mehtod call */
+extern UA_THREAD_LOCAL UA_Session* methodCallSession;
+#endif
+
 struct UA_Server {
     /* Meta */
     UA_DateTime startTime;
@@ -71,10 +76,10 @@ struct UA_Server {
     size_t externalNamespacesSize;
     UA_ExternalNamespace *externalNamespaces;
 #endif
-     
+
     /* Jobs with a repetition interval */
     LIST_HEAD(RepeatedJobsList, RepeatedJobs) repeatedJobs;
-    
+
 #ifdef UA_ENABLE_MULTITHREADING
     /* Dispatch queue head for the worker threads (the tail should not be in the same cache line) */
     struct cds_wfcq_head dispatchQueue_head;
