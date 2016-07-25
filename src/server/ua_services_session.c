@@ -15,6 +15,7 @@ void Service_CreateSession(UA_Server *server, UA_SecureChannel *channel,
         UA_Application* application = &server->applications[i];
         for(size_t j=0; j<application->endpointsSize; j++){
             UA_Endpoint* temp_endpoint = application->endpoints[j];
+            //FIXME: better matching based on suffix
             if(UA_String_equal(&request->endpointUrl, &temp_endpoint->description.endpointUrl)){
                 endpoint = temp_endpoint;
                 break;
@@ -22,11 +23,15 @@ void Service_CreateSession(UA_Server *server, UA_SecureChannel *channel,
         }
     }
 
-    if(!endpoint){
-        response->responseHeader.serviceResult = UA_STATUSCODE_BADTCPENDPOINTURLINVALID;
-        return;
+
+    if(!endpoint && server->applicationsSize>0 && server->applications[0].endpointsSize>0){
+        //response->responseHeader.serviceResult = UA_STATUSCODE_BADTCPENDPOINTURLINVALID;
+        //return;
+        //no endpoint matched - attach to the first one
+        endpoint = server->applications[0].endpoints[0];
     }
-    UA_Application* application = endpoint->application;
+
+    UA_Application* application = application = endpoint->application;
 
     response->serverEndpoints = UA_malloc(sizeof(UA_EndpointDescription) * application->endpointsSize);
 
