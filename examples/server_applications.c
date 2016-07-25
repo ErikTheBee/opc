@@ -203,7 +203,6 @@ int main(void) {
     ns[1] = 1;
     ns[2] = 2;
     ns[3] = 3;
-    ns[4] = 4;
     UA_Server_addApplication(server, &app0, ns, 4);
 
     UA_ApplicationDescription app1;
