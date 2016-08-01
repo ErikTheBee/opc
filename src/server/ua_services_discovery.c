@@ -26,6 +26,33 @@ void Service_FindServers(UA_Server *server, UA_Session *session,
     response->serversSize = server->applicationsSize;
 }
 
+//allocates memory
+static UA_String* cutoffStringBeforeThirdSlash(const UA_String* input){
+    size_t pos = 0;
+    size_t c=0;
+    UA_String* re = UA_String_new();
+    for(size_t i=0;i<input->length;i++){
+        if(input->data[i]=='/')
+            c++;
+        if(c==3){
+            pos = i;
+            break;
+        }
+    }
+    //no third slash found
+    if(c<3){
+        UA_String_copy(input, re);
+        return re;
+    }
+    //third slash found
+    size_t length = input->length-pos;
+    UA_Byte* data = (UA_Byte*)malloc(sizeof(UA_Byte)*length);
+    memcpy(data,input->data + pos,length*sizeof(UA_Byte)); //I know that sizeof will eval to 1
+    re->data = data;
+    re->length = length;
+    return re;
+}
+
 void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEndpointsRequest *request,
                           UA_GetEndpointsResponse *response) {
     UA_LOG_DEBUG_SESSION(server->config.logger, session, "Processing GetEndpointsRequest");
@@ -45,23 +72,33 @@ void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEn
     
     /* locate relevant application */
     UA_Application* application = NULL;
+    UA_String* requestEndpoint = cutoffStringBeforeThirdSlash(&request->endpointUrl);
+
     for(size_t i=0;i<server->applicationsSize;i++){
         UA_Application* temp_application = &server->applications[i];
         for(size_t j=0;j<temp_application->description.discoveryUrlsSize;j++){
-            if(UA_String_equal(&request->endpointUrl, &temp_application->description.discoveryUrls[j])){
+            UA_String* testUrl = cutoffStringBeforeThirdSlash(&temp_application->description.discoveryUrls[j]);
+            if(UA_String_equal(requestEndpoint, testUrl)){
                 application = temp_application;
-                break;
             }
+            UA_String_delete(testUrl);
+            if(application)
+                break;
         }
         for(size_t j=0;j<temp_application->endpointsSize;j++){
-            if(UA_String_equal(&request->endpointUrl, &temp_application->endpoints[j]->description.endpointUrl)){
+            UA_String* testUrl = cutoffStringBeforeThirdSlash(&temp_application->endpoints[j]->description.endpointUrl);
+            if(UA_String_equal(requestEndpoint, testUrl)){
                 application = temp_application;
-                break;
             }
+            UA_String_delete(testUrl);
+            if(application)
+                break;
         }
         if(application)
             break;
     }
+
+    UA_String_delete(requestEndpoint);
 
     if(!application){
         //application uri not found - try to fallback to the first one

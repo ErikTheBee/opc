@@ -204,6 +204,7 @@ int main(void) {
     ns[2] = 2;
     ns[3] = 3;
     UA_Server_addApplication(server, &app0, ns, 4);
+    UA_ApplicationDescription_deleteMembers(&app0);
 
     UA_ApplicationDescription app1;
     UA_ApplicationDescription_copy(&config.applicationDescription, &app1);
@@ -215,6 +216,7 @@ int main(void) {
     ns[0] = 0;
     ns[1] = 1;
     UA_Server_addApplication(server, &app1, ns, 2);
+    UA_ApplicationDescription_deleteMembers(&app1);
     /* initialize the server */
 
     UA_NodeId newNodeId = UA_NODEID_NUMERIC(1, 101);
@@ -278,23 +280,23 @@ int main(void) {
     inArgs[0].arrayDimensionsSize = 0;
     inArgs[0].arrayDimensions = NULL;
     inArgs[0].dataType = UA_TYPES[UA_TYPES_STRING].typeId;
-    inArgs[0].description = UA_LOCALIZEDTEXT("en_US",
+    inArgs[0].description = UA_LOCALIZEDTEXT_ALLOC("en_US",
             "Unique receiver address");
-    inArgs[0].name = UA_STRING("Receiver Address");
+    inArgs[0].name = UA_STRING_ALLOC("Receiver Address");
     inArgs[0].valueRank = -1;
 
     inArgs[1].arrayDimensionsSize = 0;
     inArgs[1].arrayDimensions = NULL;
     inArgs[1].dataType = UA_TYPES[UA_TYPES_STRING].typeId;
-    inArgs[1].description = UA_LOCALIZEDTEXT("en", "Unique sender address");
-    inArgs[1].name = UA_STRING("Sender Address");
+    inArgs[1].description = UA_LOCALIZEDTEXT_ALLOC("en", "Unique sender address");
+    inArgs[1].name = UA_STRING_ALLOC("Sender Address");
     inArgs[1].valueRank = -1;
 
     inArgs[2].arrayDimensionsSize = 0;
     inArgs[2].arrayDimensions = NULL;
     inArgs[2].dataType = UA_TYPES[UA_TYPES_STRING].typeId;
-    inArgs[2].description = UA_LOCALIZEDTEXT("en", "Message");
-    inArgs[2].name = UA_STRING("Message");
+    inArgs[2].description = UA_LOCALIZEDTEXT_ALLOC("en", "Message");
+    inArgs[2].name = UA_STRING_ALLOC("Message");
     inArgs[2].valueRank = -1;
 
     //add global "dropMessage" node which is works as the peer's mailbox
@@ -306,6 +308,8 @@ int main(void) {
             UA_NODEID_NUMERIC(0, UA_NS0ID_HASORDEREDCOMPONENT), dropMsgBrName,
             dropMessageAtr, &dropMessageFunction, (void*) server, inputArgSize,
             inArgs, 0, NULL, &newNodeId);
+
+    UA_Array_delete(inArgs, inputArgSize, &UA_TYPES[UA_TYPES_ARGUMENT]);
 
     /*create folder for components */
     //componentFolderNodeId= UA_NODEID_NUMERIC(1, 502);
