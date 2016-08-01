@@ -28,14 +28,14 @@ void Service_FindServers(UA_Server *server, UA_Session *session,
 
 //allocates memory
 static UA_String* cutoffStringBeforeThirdSlash(const UA_String* input){
-    size_t pos = 0;
+    size_t position = 0;
     size_t c=0;
     UA_String* re = UA_String_new();
     for(size_t i=0;i<input->length;i++){
         if(input->data[i]=='/')
             c++;
         if(c==3){
-            pos = i;
+            position = i;
             break;
         }
     }
@@ -45,9 +45,9 @@ static UA_String* cutoffStringBeforeThirdSlash(const UA_String* input){
         return re;
     }
     //third slash found
-    size_t length = input->length-pos;
+    size_t length = input->length-position;
     UA_Byte* data = (UA_Byte*)malloc(sizeof(UA_Byte)*length);
-    memcpy(data,input->data + pos,length*sizeof(UA_Byte)); //I know that sizeof will eval to 1
+    memcpy(data,input->data + position,length*sizeof(UA_Byte)); //I know that sizeof will eval to 1
     re->data = data;
     re->length = length;
     return re;
