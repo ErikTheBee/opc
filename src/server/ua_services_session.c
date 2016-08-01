@@ -17,7 +17,7 @@ void Service_CreateSession(UA_Server *server, UA_SecureChannel *channel,
         for(size_t j=0; j<application->endpointsSize; j++){
             UA_Endpoint* temp_endpoint = application->endpoints[j];
             UA_String* testUrl = cutoffStringBeforeThirdSlash(&temp_endpoint->description.endpointUrl);
-            if(UA_String_equal(requestEndpoint, &temp_endpoint->description.endpointUrl)){
+            if(UA_String_equal(requestEndpoint, testUrl)){
                 endpoint = temp_endpoint;
             }
             UA_String_delete(testUrl);
