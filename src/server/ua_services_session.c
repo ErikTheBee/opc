@@ -11,17 +11,23 @@ void Service_CreateSession(UA_Server *server, UA_SecureChannel *channel,
     }
 
     UA_Endpoint* endpoint = NULL;
+    UA_String* requestEndpoint = cutoffStringBeforeThirdSlash(&request->endpointUrl);
     for(size_t i=0; i<server->applicationsSize && !endpoint; i++){
         UA_Application* application = &server->applications[i];
         for(size_t j=0; j<application->endpointsSize; j++){
             UA_Endpoint* temp_endpoint = application->endpoints[j];
-            //FIXME: better matching based on suffix
-            if(UA_String_equal(&request->endpointUrl, &temp_endpoint->description.endpointUrl)){
+            UA_String* testUrl = cutoffStringBeforeThirdSlash(&temp_endpoint->description.endpointUrl);
+            if(UA_String_equal(requestEndpoint, &temp_endpoint->description.endpointUrl)){
                 endpoint = temp_endpoint;
-                break;
             }
+            UA_String_delete(testUrl);
+            if(endpoint)
+                break;
         }
+        if(endpoint)
+            break;
     }
+    UA_String_delete(requestEndpoint);
 
 
     if(!endpoint && server->applicationsSize>0 && server->applications[0].endpointsSize>0){

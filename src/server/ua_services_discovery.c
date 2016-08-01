@@ -2,32 +2,9 @@
 #include "ua_services.h"
 #include "ua_util.h"
 
-void Service_FindServers(UA_Server *server, UA_Session *session,
-                         const UA_FindServersRequest *request, UA_FindServersResponse *response) {
-    UA_LOG_DEBUG_SESSION(server->config.logger, session, "Processing FindServersRequest");
-    /* copy ApplicationDescription from the config */
-    UA_ApplicationDescription *descr = UA_malloc(sizeof(UA_ApplicationDescription)*server->applicationsSize);
-    if(!descr) {
-        response->responseHeader.serviceResult = UA_STATUSCODE_BADOUTOFMEMORY;
-        return;
-    }
 
-    for(size_t i=0;i<server->applicationsSize;i++){
-        UA_ApplicationDescription_init(&descr[i]);
-        response->responseHeader.serviceResult =
-                UA_ApplicationDescription_copy(&server->applications[i].description, &descr[i]);
-        if(response->responseHeader.serviceResult != UA_STATUSCODE_GOOD) {
-            UA_free(descr);
-            return;
-        }
-    }
-
-    response->servers = descr;
-    response->serversSize = server->applicationsSize;
-}
-
-//allocates memory
-static UA_String* cutoffStringBeforeThirdSlash(const UA_String* input){
+//allocates memory for the output string
+UA_String* cutoffStringBeforeThirdSlash(const UA_String* input){
     size_t position = 0;
     size_t c=0;
     UA_String* re = UA_String_new();
@@ -51,6 +28,30 @@ static UA_String* cutoffStringBeforeThirdSlash(const UA_String* input){
     re->data = data;
     re->length = length;
     return re;
+}
+
+void Service_FindServers(UA_Server *server, UA_Session *session,
+                         const UA_FindServersRequest *request, UA_FindServersResponse *response) {
+    UA_LOG_DEBUG_SESSION(server->config.logger, session, "Processing FindServersRequest");
+    /* copy ApplicationDescription from the config */
+    UA_ApplicationDescription *descr = UA_malloc(sizeof(UA_ApplicationDescription)*server->applicationsSize);
+    if(!descr) {
+        response->responseHeader.serviceResult = UA_STATUSCODE_BADOUTOFMEMORY;
+        return;
+    }
+
+    for(size_t i=0;i<server->applicationsSize;i++){
+        UA_ApplicationDescription_init(&descr[i]);
+        response->responseHeader.serviceResult =
+                UA_ApplicationDescription_copy(&server->applications[i].description, &descr[i]);
+        if(response->responseHeader.serviceResult != UA_STATUSCODE_GOOD) {
+            UA_free(descr);
+            return;
+        }
+    }
+
+    response->servers = descr;
+    response->serversSize = server->applicationsSize;
 }
 
 void Service_GetEndpoints(UA_Server *server, UA_Session *session, const UA_GetEndpointsRequest *request,

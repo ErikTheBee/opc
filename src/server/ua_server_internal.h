@@ -125,4 +125,7 @@ isNodeInTree(UA_NodeStore *ns, const UA_NodeId *rootNode, const UA_NodeId *nodeT
              const UA_NodeId *referenceTypeIds, size_t referenceTypeIdsSize,
              size_t maxDepth, UA_Boolean *found);
 
+UA_String*
+cutoffStringBeforeThirdSlash(const UA_String* input);
+
 #endif /* UA_SERVER_INTERNAL_H_ */
