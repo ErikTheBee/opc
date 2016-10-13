@@ -1,5 +1,4 @@
-/*
- * Copyright (C) 2013-2015 the contributors as stated in the AUTHORS file
+/* Copyright (C) 2013-2016 the contributors as stated in the AUTHORS file
  *
  * This file is part of open62541. open62541 is free software: you can
  * redistribute it and/or modify it under the terms of the GNU Lesser General
@@ -25,6 +24,8 @@ extern "C" {
  * ==========================
  * This section contains numerical and string constants that are defined in the
  * OPC UA standard.
+ *
+ * .. _attribute-id:
  *
  * Attribute Id
  * ------------
@@ -94,14 +95,6 @@ typedef enum {
 #define UA_WRITEMASK_VALUERANK                  1<<19
 #define UA_WRITEMASK_WRITEMASK                  1<<20
 #define UA_WRITEMASK_VALUEFORVARIABLETYPE       1<<21
-
-/**
- * Encoding Offsets
- * ----------------
- * Subtract from the typeid of the encoding nodeids to get to the type
- * definition. */
-#define UA_ENCODINGOFFSET_XML 1
-#define UA_ENCODINGOFFSET_BINARY 2
 
 /**
  * .. _statuscodes:

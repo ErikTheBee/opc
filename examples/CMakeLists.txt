@@ -7,7 +7,7 @@ else()
     add_definitions(-DUA_NO_AMALGAMATION)
 endif()
 
-list(APPEND LIBS ${open62541_LIBRARIES})
+list(APPEND LIBS ${open62541_LIBRARIES} open62541)
 if(NOT WIN32)
   list(APPEND LIBS pthread)
   if (NOT APPLE)
@@ -55,17 +55,18 @@ target_link_libraries(server_datasource ${LIBS})
 add_executable(server_firstSteps server_firstSteps.c $<TARGET_OBJECTS:open62541-object>)
 target_link_libraries(server_firstSteps ${LIBS})
 
-add_executable(client_firstSteps client_firstSteps.c $<TARGET_OBJECTS:open62541-object>)
-target_link_libraries(client_firstSteps ${LIBS})
+add_executable(server_instantiation server_instantiation.c $<TARGET_OBJECTS:open62541-object>)
+target_link_libraries(server_instantiation ${LIBS})
 
 add_executable(server_repeated_job server_repeated_job.c $<TARGET_OBJECTS:open62541-object>)
 target_link_libraries(server_repeated_job ${LIBS})
 
-if(UA_BUILD_EXAMPLES_NODESET_COMPILER)
-  add_executable(server_nodeset server_nodeset.c ${PROJECT_BINARY_DIR}/src_generated/nodeset.c $<TARGET_OBJECTS:open62541-object>)
-  target_link_libraries(server_nodeset ${LIBS})
-  target_include_directories(server_nodeset PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/deps) # needs an internal header
-endif()
+add_executable(server_readspeed server_readspeed.c $<TARGET_OBJECTS:open62541-object>)
+target_include_directories(server_readspeed PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/deps) # needs an internal header
+target_link_libraries(server_readspeed ${LIBS})
+
+add_executable(server_applications server_applications.c $<TARGET_OBJECTS:open62541-object>)
+target_link_libraries(server_applications ${LIBS})
 
 if(UA_ENABLE_METHODCALLS)
   add_executable(server_method server_method.c $<TARGET_OBJECTS:open62541-object>)
@@ -78,17 +79,30 @@ if(UA_BUILD_SELFSIGNED_CERTIFICATE)
                      COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/certs/create_self-signed.py ${CMAKE_CURRENT_BINARY_DIR}
                      DEPENDS ${PROJECT_SOURCE_DIR}/tools/certs/create_self-signed.py
                              ${PROJECT_SOURCE_DIR}/tools/certs/localhost.cnf)
-                             
+
   add_custom_target(selfsigned ALL DEPENDS server_cert.der ca.crt)
 
   add_executable(server_certificate server_certificate.c $<TARGET_OBJECTS:open62541-object> server_cert.der ca.crt)
   target_link_libraries(server_certificate ${LIBS})
 endif()
 
-add_executable(server_readspeed server_readspeed.c $<TARGET_OBJECTS:open62541-object>)
-target_include_directories(server_readspeed PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/deps) # needs an internal header
-target_link_libraries(server_readspeed ${LIBS})
+if(UA_ENABLE_DISCOVERY)
 
-add_executable(server_applications server_applications.c $<TARGET_OBJECTS:open62541-object>)
-target_link_libraries(server_applications ${LIBS})
+    add_executable(discovery_server_discovery discovery/server_discovery.c)
+    target_link_libraries(discovery_server_discovery ${LIBS})
 
+    add_executable(discovery_server_register discovery/server_register.c)
+    target_link_libraries(discovery_server_register ${LIBS})
+
+    add_executable(discovery_client_find_servers discovery/client_find_servers.c)
+    target_link_libraries(discovery_client_find_servers ${LIBS})
+endif()
+
+if(UA_BUILD_EXAMPLES_NODESET_COMPILER)
+  add_executable(server_nodeset server_nodeset.c ${PROJECT_BINARY_DIR}/src_generated/nodeset.c $<TARGET_OBJECTS:open62541-object>)
+  target_link_libraries(server_nodeset ${LIBS})
+  target_include_directories(server_nodeset PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/deps) # needs an internal header
+endif()
+
+add_executable(client_firstSteps client_firstSteps.c $<TARGET_OBJECTS:open62541-object>)
+target_link_libraries(client_firstSteps ${LIBS})
