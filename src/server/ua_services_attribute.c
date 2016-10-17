@@ -1,6 +1,8 @@
 #include "ua_server_internal.h"
 #include "ua_services.h"
-
+#ifdef UA_ENABLE_NONSTANDARD_STATELESS
+#include "ua_types_encoding_binary.h"
+#endif
 /******************/
 /* Read Attribute */
 /******************/
@@ -520,12 +522,8 @@ UA_Variant_matchVariableDefinition(UA_Server *server, const UA_NodeId *variableD
     if(!UA_NodeId_equal(valueDataTypeId, variableDataTypeId)) {
         /* is this a subtype? */
         const UA_NodeId subtypeId = UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE);
-        UA_Boolean found = false;
-        UA_StatusCode retval = isNodeInTree(server->nodestore, valueDataTypeId,
-                                            variableDataTypeId, &subtypeId, 1, &found);
-        if(retval != UA_STATUSCODE_GOOD)
-            return retval;
-        if(found)
+        if(isNodeInTree(server->nodestore, valueDataTypeId,
+                        variableDataTypeId, &subtypeId, 1))
             goto check_array;
 
         const UA_DataType *variableDataType = findDataType(variableDataTypeId);
@@ -537,7 +535,7 @@ UA_Variant_matchVariableDefinition(UA_Server *server, const UA_NodeId *variableD
            dimensions are checked later */
         if(variableDataType == &UA_TYPES[UA_TYPES_BYTE] &&
            valueDataType == &UA_TYPES[UA_TYPES_BYTESTRING] &&
-           !range && !UA_Variant_isScalar(value)) {
+           !range && UA_Variant_isScalar(value)) {
             UA_ByteString *str = (UA_ByteString*)value->data;
             editableValue->type = &UA_TYPES[UA_TYPES_BYTE];
             editableValue->arrayLength = str->length;
@@ -610,13 +608,12 @@ UA_VariableNode_setDataType(UA_Server *server, UA_VariableNode *node,
 
     /* Does the new type match the constraints of the variabletype? */
     UA_NodeId subtypeId = UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE);
-    UA_Boolean found = false;
-    UA_StatusCode retval = isNodeInTree(server->nodestore, dataType,
-                                        &vt->dataType, &subtypeId, 1, &found);
-    if(retval != UA_STATUSCODE_GOOD || !found)
+    if(!isNodeInTree(server->nodestore, dataType,
+                     &vt->dataType, &subtypeId, 1))
         return UA_STATUSCODE_BADTYPEMISMATCH;
 
     /* Check if the current value would match the new type */
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
     if(node->value.data.value.hasValue) {
         retval = UA_Variant_matchVariableDefinition(server, dataType, node->valueRank,
                                                     node->arrayDimensionsSize,

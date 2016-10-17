@@ -378,6 +378,7 @@ class opcua_value_t():
             code.append(valueName + "[" + str(self.value.index(v)) + "] = " + v.printOpen62541CCode_SubType() + ";")
         code.append("UA_Variant_setArray( &attr.value, &" + valueName +
                     ", (UA_Int32) " + str(len(self.value)) + ", &UA_TYPES[UA_TYPES_" + self.value[0].stringRepresentation.upper() + "]);")
+        #code.append("attr.dataType = (const struct &UA_TYPES[UA_TYPES_" + self.value[0].stringRepresentation.upper() + "].typeId;")
     else:
       # User the following strategy for all directly mappable values a la 'UA_Type MyInt = (UA_Type) 23;'
       if self.value[0].__binTypeId__ == BUILTINTYPE_TYPEID_GUID:
