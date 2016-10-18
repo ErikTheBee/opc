@@ -796,7 +796,7 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     UA_RCU_UNLOCK();
 
     UA_VariableTypeNode *basedatavartype =
-        createVariableTypeNode(server, "BaseDataVariableType", UA_NS0ID_BASEDATAVARIABLETYPE, true);
+        createVariableTypeNode(server, "BaseDataVariableType", UA_NS0ID_BASEDATAVARIABLETYPE, false);
     basedatavartype->valueRank = -2;
     basedatavartype->dataType = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE);
     addNodeInternalWithType(server, (UA_Node*)basedatavartype,
@@ -804,7 +804,7 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
                             nodeIdHasSubType, UA_NODEID_NUMERIC(0, UA_NS0ID_BASEVARIABLETYPE),true);
 
     UA_VariableTypeNode *propertytype =
-        createVariableTypeNode(server, "PropertyType", UA_NS0ID_PROPERTYTYPE, true);
+        createVariableTypeNode(server, "PropertyType", UA_NS0ID_PROPERTYTYPE, false);
     propertytype->valueRank = -2;
     propertytype->dataType = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE);
     addNodeInternalWithType(server, (UA_Node*)propertytype,
@@ -812,7 +812,7 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
                             nodeIdHasSubType, UA_NODEID_NUMERIC(0, UA_NS0ID_BASEVARIABLETYPE),true);
 
     UA_VariableTypeNode *buildinfotype =
-        createVariableTypeNode(server, "BuildInfoType", UA_NS0ID_BUILDINFOTYPE, true);
+        createVariableTypeNode(server, "BuildInfoType", UA_NS0ID_BUILDINFOTYPE, false);
     buildinfotype->valueRank = -1;
     buildinfotype->dataType = UA_NODEID_NUMERIC(0, UA_NS0ID_BUILDINFO);
     addNodeInternalWithType(server, (UA_Node*)buildinfotype,
@@ -820,7 +820,7 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
                             nodeIdHasSubType, UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE),true);
 
     UA_VariableTypeNode *serverstatustype =
-        createVariableTypeNode(server, "ServerStatusType", UA_NS0ID_SERVERSTATUSTYPE, true);
+        createVariableTypeNode(server, "ServerStatusType", UA_NS0ID_SERVERSTATUSTYPE, false);
     serverstatustype->valueRank = -1;
     serverstatustype->dataType = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERSTATUSDATATYPE);
     addNodeInternalWithType(server, (UA_Node*)serverstatustype,
