@@ -5,7 +5,6 @@
 /* Add Node */
 /************/
 
-
 static void
 Service_AddNodes_single(UA_Server *server, UA_Session *session,
                         const UA_AddNodesItem *item, UA_AddNodesResult *result,
@@ -407,6 +406,9 @@ Service_AddNodes_existing(UA_Server *server, UA_Session *session, UA_Node *node,
     UA_StatusCode retval = checkParentReference(server, session, node->nodeClass,
                                                 parentNodeId, referenceTypeId);
     if(retval != UA_STATUSCODE_GOOD) {
+        UA_LOG_DEBUG_SESSION(server->config.logger, session,
+                             "AddNodes: Checking the reference to the parent returned"
+                             "error code 0x%08x", retval);
         UA_NodeStore_deleteNode(node);
         return retval;
     }
@@ -440,7 +442,8 @@ Service_AddNodes_existing(UA_Server *server, UA_Session *session, UA_Node *node,
     retval = Service_AddReferences_single(server, session, &item);
     if(retval != UA_STATUSCODE_GOOD) {
         UA_LOG_DEBUG_SESSION(server->config.logger, session,
-                             "AddNodes: Could not add the reference to the parent");
+                             "AddNodes: Could not add the reference to the parent"
+                             "with error code 0x%08x", retval);
         goto remove_node;
     }
 
@@ -463,7 +466,8 @@ Service_AddNodes_existing(UA_Server *server, UA_Session *session, UA_Node *node,
                                  typeDefinition, instantiationCallback);
         if(retval != UA_STATUSCODE_GOOD) {
             UA_LOG_DEBUG_SESSION(server->config.logger, session,
-                                 "AddNodes: Could not instantiate the node");
+                                 "AddNodes: Could not instantiate the node with"
+                                 "error code 0x%08x", retval);
             goto remove_node;
         }
     }
@@ -931,13 +935,14 @@ UA_Server_addMethodNode(UA_Server *server, const UA_NodeId requestedNewNodeId,
 /* Add References */
 /******************/
 
+static UA_StatusCode
+deleteOneWayReference(UA_Server *server, UA_Session *session, UA_Node *node,
+                      const UA_DeleteReferencesItem *item);
+
 /* Adds a one-way reference to the local nodestore */
 static UA_StatusCode
 addOneWayReference(UA_Server *server, UA_Session *session,
                    UA_Node *node, const UA_AddReferencesItem *item) {
-    if(item->targetNodeClass != UA_NODECLASS_UNSPECIFIED &&
-       item->targetNodeClass != node->nodeClass)
-        return UA_STATUSCODE_BADNODECLASSINVALID;
     size_t i = node->referencesSize;
     size_t refssize = (i+1) | 3; // so the realloc is not necessary every time
     UA_ReferenceNode *new_refs = UA_realloc(node->references, sizeof(UA_ReferenceNode) * refssize);
@@ -958,17 +963,21 @@ addOneWayReference(UA_Server *server, UA_Session *session,
 UA_StatusCode
 Service_AddReferences_single(UA_Server *server, UA_Session *session,
                              const UA_AddReferencesItem *item) {
-UA_StatusCode retval = UA_STATUSCODE_GOOD;
-#ifdef UA_ENABLE_EXTERNAL_NAMESPACES
-    UA_Boolean handledExternally = UA_FALSE;
-#endif
+    /* Currently no expandednodeids are allowed */
     if(item->targetServerUri.length > 0)
-        return UA_STATUSCODE_BADNOTIMPLEMENTED; // currently no expandednodeids are allowed
+        return UA_STATUSCODE_BADNOTIMPLEMENTED;
 
-#ifdef UA_ENABLE_EXTERNAL_NAMESPACES
+    /* Add the first direction */
+#ifndef UA_ENABLE_EXTERNAL_NAMESPACES
+    UA_StatusCode retval = UA_Server_editNode(server, session, &item->sourceNodeId,
+                                              (UA_EditNodeCallback)addOneWayReference,
+                                              item);
+#else
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+    UA_Boolean handledExternally = UA_FALSE;
     for(size_t j = 0; j <server->externalNamespacesSize; j++) {
         if(item->sourceNodeId.namespaceIndex != server->externalNamespaces[j].index) {
-                continue;
+            continue;
         } else {
             UA_ExternalNodeStore *ens = &server->externalNamespaces[j].externalNodeStore;
             retval = ens->addOneWayReference(ens->ensHandle, item);
@@ -976,45 +985,54 @@ UA_StatusCode retval = UA_STATUSCODE_GOOD;
             break;
         }
     }
-    if(handledExternally == UA_FALSE) {
-#endif
-    /* cast away the const to loop the call through UA_Server_editNode beware
-     * the "if" above for external nodestores */
-    retval = UA_Server_editNode(server, session, &item->sourceNodeId,
-                                (UA_EditNodeCallback)addOneWayReference, item);
-#ifdef UA_ENABLE_EXTERNAL_NAMESPACES
-    }
+    if(!handledExternally)
+        retval = UA_Server_editNode(server, session, &item->sourceNodeId,
+                                    (UA_EditNodeCallback)addOneWayReference, item);
 #endif
 
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
+    /* Add the second direction */
     UA_AddReferencesItem secondItem;
-    secondItem = *item;
-    secondItem.targetNodeId.nodeId = item->sourceNodeId;
+    UA_AddReferencesItem_init(&secondItem);
     secondItem.sourceNodeId = item->targetNodeId.nodeId;
+    secondItem.referenceTypeId = item->referenceTypeId;
     secondItem.isForward = !item->isForward;
-#ifdef UA_ENABLE_EXTERNAL_NAMESPACES
+    secondItem.targetNodeId.nodeId = item->sourceNodeId;
+    /* keep default secondItem.targetNodeClass = UA_NODECLASS_UNSPECIFIED */
+#ifndef UA_ENABLE_EXTERNAL_NAMESPACES
+    retval = UA_Server_editNode(server, session, &secondItem.sourceNodeId,
+                                (UA_EditNodeCallback)addOneWayReference, &secondItem);
+#else
     handledExternally = UA_FALSE;
     for(size_t j = 0; j <server->externalNamespacesSize; j++) {
         if(secondItem.sourceNodeId.namespaceIndex != server->externalNamespaces[j].index) {
-                continue;
+            continue;
         } else {
             UA_ExternalNodeStore *ens = &server->externalNamespaces[j].externalNodeStore;
             retval = ens->addOneWayReference(ens->ensHandle, &secondItem);
             handledExternally = UA_TRUE;
             break;
         }
+    }
+    if(!handledExternally)
+        retval = UA_Server_editNode(server, session, &secondItem.sourceNodeId,
+                                    (UA_EditNodeCallback)addOneWayReference, &secondItem);
+#endif
 
+    /* remove reference if the second direction failed */
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_DeleteReferencesItem deleteItem;
+        deleteItem.sourceNodeId = item->sourceNodeId;
+        deleteItem.referenceTypeId = item->referenceTypeId;
+        deleteItem.isForward = item->isForward;
+        deleteItem.targetNodeId = item->targetNodeId;
+        deleteItem.deleteBidirectional = false;
+        /* ignore returned status code */
+        UA_Server_editNode(server, session, &item->sourceNodeId,
+                           (UA_EditNodeCallback)deleteOneWayReference, &deleteItem);
     }
-    if(handledExternally == UA_FALSE) {
-#endif
-    retval = UA_Server_editNode(server, session, &secondItem.sourceNodeId,
-                                (UA_EditNodeCallback)addOneWayReference, &secondItem);
-#ifdef UA_ENABLE_EXTERNAL_NAMESPACES
-    }
-#endif
-    // todo: remove reference if the second direction failed
     return retval;
 }
 
@@ -1027,22 +1045,27 @@ void Service_AddReferences(UA_Server *server, UA_Session *session,
         response->responseHeader.serviceResult = UA_STATUSCODE_BADNOTHINGTODO;
         return;
     }
-    size_t size = request->referencesToAddSize;
 
-    if(!(response->results = UA_malloc(sizeof(UA_StatusCode) * size))) {
+    response->results = UA_malloc(sizeof(UA_StatusCode) * request->referencesToAddSize);
+    if(!response->results) {
         response->responseHeader.serviceResult = UA_STATUSCODE_BADOUTOFMEMORY;
         return;
     }
-    response->resultsSize = size;
+    response->resultsSize = request->referencesToAddSize;
 
-#ifdef UA_ENABLE_EXTERNAL_NAMESPACES
-#ifdef NO_ALLOCA
+#ifndef UA_ENABLE_EXTERNAL_NAMESPACES
+    for(size_t i = 0; i < response->resultsSize; i++)
+        response->results[i] =
+            Service_AddReferences_single(server, session, &request->referencesToAdd[i]);
+#else
+    size_t size = request->referencesToAddSize;
+# ifdef NO_ALLOCA
     UA_Boolean isExternal[size];
     UA_UInt32 indices[size];
-#else
+# else
     UA_Boolean *isExternal = UA_alloca(sizeof(UA_Boolean) * size);
     UA_UInt32 *indices = UA_alloca(sizeof(UA_UInt32) * size);
-#endif /*NO_ALLOCA */
+# endif /*NO_ALLOCA */
     memset(isExternal, false, sizeof(UA_Boolean) * size);
     for(size_t j = 0; j < server->externalNamespacesSize; j++) {
         size_t indicesSize = 0;
@@ -1060,14 +1083,13 @@ void Service_AddReferences(UA_Server *server, UA_Session *session,
         ens->addReferences(ens->ensHandle, &request->requestHeader, request->referencesToAdd,
                            indices, (UA_UInt32)indicesSize, response->results, response->diagnosticInfos);
     }
-#endif
 
     for(size_t i = 0; i < response->resultsSize; i++) {
-#ifdef UA_ENABLE_EXTERNAL_NAMESPACES
         if(!isExternal[i])
-#endif
-            response->results[i] = Service_AddReferences_single(server, session, &request->referencesToAdd[i]);
+            response->results[i] =
+                Service_AddReferences_single(server, session, &request->referencesToAdd[i]);
     }
+#endif
 }
 
 UA_StatusCode
@@ -1089,10 +1111,6 @@ UA_Server_addReference(UA_Server *server, const UA_NodeId sourceId,
 /****************/
 /* Delete Nodes */
 /****************/
-
-static UA_StatusCode
-deleteOneWayReference(UA_Server *server, UA_Session *session, UA_Node *node,
-                      const UA_DeleteReferencesItem *item);
 
 UA_StatusCode
 Service_DeleteNodes_single(UA_Server *server, UA_Session *session,
@@ -1164,8 +1182,8 @@ void Service_DeleteNodes(UA_Server *server, UA_Session *session,
         response->responseHeader.serviceResult = UA_STATUSCODE_BADOUTOFMEMORY;;
         return;
     }
-
     response->resultsSize = request->nodesToDeleteSize;
+
     for(size_t i = 0; i < request->nodesToDeleteSize; i++) {
         UA_DeleteNodesItem *item = &request->nodesToDelete[i];
         response->results[i] = Service_DeleteNodes_single(server, session, &item->nodeId,
@@ -1211,8 +1229,10 @@ deleteOneWayReference(UA_Server *server, UA_Session *session, UA_Node *node,
     if(!edited)
         return UA_STATUSCODE_UNCERTAINREFERENCENOTDELETED;
     /* we removed the last reference */
-    if(node->referencesSize == 0 && node->references)
+    if(node->referencesSize == 0 && node->references) {
         UA_free(node->references);
+        node->references = NULL;
+    }
     return UA_STATUSCODE_GOOD;;
 }
 
@@ -1328,9 +1348,8 @@ UA_Server_setVariableNode_dataSource(UA_Server *server, const UA_NodeId nodeId,
 /****************************/
 
 static UA_StatusCode
-setObjectTypeLifecycleManagement(UA_Server *server, UA_Session *session,
-                                 UA_ObjectTypeNode* node,
-                                 UA_ObjectLifecycleManagement *olm) {
+setOLM(UA_Server *server, UA_Session *session,
+       UA_ObjectTypeNode* node, UA_ObjectLifecycleManagement *olm) {
     if(node->nodeClass != UA_NODECLASS_OBJECTTYPE)
         return UA_STATUSCODE_BADNODECLASSINVALID;
     node->lifecycleManagement = *olm;
@@ -1342,7 +1361,7 @@ UA_Server_setObjectTypeNode_lifecycleManagement(UA_Server *server, UA_NodeId nod
                                                 UA_ObjectLifecycleManagement olm) {
     UA_RCU_LOCK();
     UA_StatusCode retval = UA_Server_editNode(server, &adminSession, &nodeId,
-                                              (UA_EditNodeCallback)setObjectTypeLifecycleManagement, &olm);
+                                              (UA_EditNodeCallback)setOLM, &olm);
     UA_RCU_UNLOCK();
     return retval;
 }
@@ -1359,7 +1378,8 @@ struct addMethodCallback {
 };
 
 static UA_StatusCode
-editMethodCallback(UA_Server *server, UA_Session* session, UA_Node* node, const void* handle) {
+editMethodCallback(UA_Server *server, UA_Session* session,
+                   UA_Node* node, const void* handle) {
     if(node->nodeClass != UA_NODECLASS_METHOD)
         return UA_STATUSCODE_BADNODECLASSINVALID;
     const struct addMethodCallback *newCallback = handle;
