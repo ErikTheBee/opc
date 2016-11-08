@@ -213,6 +213,7 @@ typeCheckValue(UA_Server *server, const UA_NodeId *targetDataTypeId,
 
     /* Some structured type may be omitted from the type hierarchy. Ensure that
      * every type is valid for BaseDataType */
+    const UA_NodeId basedatatype = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE);
     if(UA_NodeId_equal(targetDataTypeId, &basedatatype))
         goto check_array;
 
