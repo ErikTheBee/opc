@@ -421,7 +421,6 @@ copyStandardAttributes(UA_Node *node, const UA_AddNodesItem *item,
     retval |= UA_LocalizedText_copy(&attr->displayName, &node->displayName);
     retval |= UA_LocalizedText_copy(&attr->description, &node->description);
     node->writeMask = attr->writeMask;
-    node->userWriteMask = attr->userWriteMask;
     return retval;
 }
 
@@ -449,7 +448,6 @@ copyCommonVariableAttributes(UA_VariableNode *node, const UA_VariableAttributes 
 static UA_StatusCode
 copyVariableNodeAttributes(UA_VariableNode *vnode, const UA_VariableAttributes *attr) {
     vnode->accessLevel = attr->accessLevel;
-    vnode->userAccessLevel = attr->userAccessLevel;
     vnode->historizing = attr->historizing;
     vnode->minimumSamplingInterval = attr->minimumSamplingInterval;
     return copyCommonVariableAttributes(vnode, attr);
