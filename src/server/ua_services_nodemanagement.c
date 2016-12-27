@@ -319,12 +319,67 @@ instanceFindAggregateByBrowsename(UA_Server *server, UA_Session *session,
     return retval;
 }
 
+static UA_StatusCode
+copyChildNode(UA_Server *server, UA_Session *session, const UA_NodeId *destinationNodeId, 
+              const UA_ReferenceDescription *rd, UA_InstantiationCallback *instantiationCallback) {
+    UA_NodeId existingChild = UA_NODEID_NULL;
+    UA_StatusCode retval = instanceFindAggregateByBrowsename(server, session, destinationNodeId,
+                                                             &rd->browseName, &existingChild);
+    if(retval != UA_STATUSCODE_GOOD)
+        return retval;
+        
+    /* Have a child with that browseName. Try to deep-copy missing members. */
+    if(!UA_NodeId_isNull(&existingChild)) {
+        if(rd->nodeClass == UA_NODECLASS_VARIABLE ||
+           rd->nodeClass == UA_NODECLASS_OBJECT)
+            retval = copyChildNodes(server, session, &rd->nodeId.nodeId,
+                                    &existingChild, instantiationCallback);
+        UA_NodeId_deleteMembers(&existingChild);
+        return retval;
+    }
+
+    /* No existing child with that browsename. Create it. */
+    if(rd->nodeClass == UA_NODECLASS_METHOD) {
+        /* Add a reference to the method in the objecttype */
+        UA_AddReferencesItem newItem;
+        UA_AddReferencesItem_init(&newItem);
+        newItem.sourceNodeId = *destinationNodeId;
+        newItem.referenceTypeId = rd->referenceTypeId;
+        newItem.isForward = true;
+        newItem.targetNodeId = rd->nodeId;
+        newItem.targetNodeClass = UA_NODECLASS_METHOD;
+        retval = Service_AddReferences_single(server, session, &newItem);
+    } else if(rd->nodeClass == UA_NODECLASS_VARIABLE ||
+              rd->nodeClass == UA_NODECLASS_OBJECT) {
+        /* Copy the node */
+        UA_Node *node = UA_NodeStore_getCopy(server->nodestore, &rd->nodeId.nodeId);
+        if(!node)
+            return UA_STATUSCODE_BADNODEIDINVALID;
+
+        /* Reset the NodeId (random numeric id will be assigned in the nodestore) */
+        UA_NodeId_deleteMembers(&node->nodeId);
+        node->nodeId.namespaceIndex = destinationNodeId->namespaceIndex;
+                
+        /* Get the node type */
+        const UA_NodeId *typeId = NULL;
+        const UA_Node *vt = getNodeType(server, node);
+        if(vt)
+            typeId = &vt->nodeId;
+
+        /* Add the node (instantiates internally) */
+        retval = UA_Server_addNode(server, session, node, destinationNodeId,
+                                   &rd->referenceTypeId, typeId,
+                                   instantiationCallback, &existingChild);
+    }
+    return retval;
+}
+
 /* Copy any children of Node sourceNodeId to another node destinationNodeId. */
 static UA_StatusCode
 copyChildNodes(UA_Server *server, UA_Session *session, 
                const UA_NodeId *sourceNodeId, const UA_NodeId *destinationNodeId, 
                UA_InstantiationCallback *instantiationCallback) {
-    /* Browse to get all children */
+    /* Browse to get all children of the source */
     UA_BrowseDescription bd;
     UA_BrowseDescription_init(&bd);
     bd.nodeId = *sourceNodeId;
@@ -341,69 +396,11 @@ copyChildNodes(UA_Server *server, UA_Session *session,
     if(br.statusCode != UA_STATUSCODE_GOOD)
         return br.statusCode;
   
-    /* Copy all children */
+    /* Copy all children from source to destination */
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
-    for(size_t i = 0; i < br.referencesSize; ++i) {
-        UA_ReferenceDescription *rd = &br.references[i];
-        UA_NodeId existingChild = UA_NODEID_NULL;
-        retval = instanceFindAggregateByBrowsename(server, session, destinationNodeId,
-                                                   &rd->browseName, &existingChild);
-        if(retval != UA_STATUSCODE_GOOD)
-            break;
-        
-        /* No existing child with that browsename. Create it. */
-        if(UA_NodeId_isNull(&existingChild)) {
-            if(rd->nodeClass == UA_NODECLASS_METHOD) {
-                /* Add a reference to the method in the objecttype */
-                UA_AddReferencesItem newItem;
-                UA_AddReferencesItem_init(&newItem);
-                newItem.sourceNodeId = *destinationNodeId;
-                newItem.referenceTypeId = rd->referenceTypeId;
-                newItem.isForward = true;
-                newItem.targetNodeId = rd->nodeId;
-                newItem.targetNodeClass = UA_NODECLASS_METHOD;
-                retval = Service_AddReferences_single(server, session, &newItem);
-            } else if(rd->nodeClass == UA_NODECLASS_VARIABLE ||
-                      rd->nodeClass == UA_NODECLASS_OBJECT) {
-                /* Copy the node */
-                UA_Node *node = UA_NodeStore_getCopy(server->nodestore, &rd->nodeId.nodeId);
-                if(!node) {
-                    retval = UA_STATUSCODE_BADNODEIDINVALID;
-                    break;
-                }
-
-                /* Reset the NodeId (random id will be assigned in the nodestore */
-                UA_NodeId_deleteMembers(&node->nodeId);
-                node->nodeId.namespaceIndex = destinationNodeId->namespaceIndex;
-                
-                /* Get the node type */
-                const UA_NodeId *typeId = NULL;
-                if(node->nodeClass == UA_NODECLASS_VARIABLE ||
-                   node->nodeClass == UA_NODECLASS_OBJECT) {
-                    const UA_Node *vt = getNodeType(server, node);
-                    if(vt)
-                        typeId = &vt->nodeId;
-                }
-
-                /* Add the node (instantiates internally) */
-                retval = UA_Server_addNode(server, session, node, destinationNodeId,
-                                           &rd->referenceTypeId, typeId,
-                                           instantiationCallback, &existingChild);
-                if(retval != UA_STATUSCODE_GOOD)
-                    break;
-            }
-            continue;
-        }
-
-        /* Have a child with that browseName. Try to deep-copy missing members. */
-        if(rd->nodeClass == UA_NODECLASS_VARIABLE ||
-           rd->nodeClass == UA_NODECLASS_OBJECT)
-            retval = copyChildNodes(server, session, &rd->nodeId.nodeId,
-                                    &existingChild, instantiationCallback);
-        UA_NodeId_deleteMembers(&existingChild);
-        if(retval != UA_STATUSCODE_GOOD)
-            break;
-    }
+    for(size_t i = 0; i < br.referencesSize; ++i)
+        retval |= copyChildNode(server, session, destinationNodeId, 
+                                &br.references[i], instantiationCallback);
     UA_BrowseResult_deleteMembers(&br);
     return retval;
 }
