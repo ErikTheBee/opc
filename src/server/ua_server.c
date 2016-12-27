@@ -155,7 +155,7 @@ addNodeInternal(UA_Server *server, UA_Node *node, UA_UInt32 parentNodeId,
 
 static void
 addTypeNodeInternal(UA_Server *server, UA_Node *node, UA_UInt32 parentNodeId) {
-    addNodeInternalWithType(server, node, parentNodeId, UA_NS0ID_HASSUBTYPE, 0);
+    addNodeInternalWithType(server, node, parentNodeId, UA_NS0ID_HASSUBTYPE, parentNodeId);
 }
 
 /**********/
@@ -904,7 +904,8 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     UA_ObjectNode *servernode = UA_NodeStore_newObjectNode();
     copyNames((UA_Node*)servernode, "Server");
     servernode->nodeId.identifier.numeric = UA_NS0ID_SERVER;
-    UA_Server_addNode_begin(server, &adminSession, (UA_Node*)servernode, NULL);
+    UA_Server_addNode_begin(server, &adminSession, (UA_Node*)servernode,
+                            &objectsId, &organizesId, NULL);
     
     UA_VariableNode *namespaceArray = UA_NodeStore_newVariableNode();
     copyNames((UA_Node*)namespaceArray, "NamespaceArray");
@@ -937,7 +938,8 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     UA_ObjectNode *servercapablities = UA_NodeStore_newObjectNode();
     copyNames((UA_Node*)servercapablities, "ServerCapabilities");
     servercapablities->nodeId.identifier.numeric = UA_NS0ID_SERVER_SERVERCAPABILITIES;
-    UA_Server_addNode_begin(server, &adminSession, (UA_Node*)servercapablities, NULL);
+    UA_Server_addNode_begin(server, &adminSession, (UA_Node*)servercapablities,
+                            &serverId, &hasComponentId, NULL);
     
     UA_VariableNode *localeIdArray = UA_NodeStore_newVariableNode();
     copyNames((UA_Node*)localeIdArray, "LocaleIdArray");
@@ -1063,14 +1065,14 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
 
     /* Finish ServerCapabilities */
     UA_Server_addNode_finish(server, &adminSession, &serverCapabilitiesId,
-                             UA_NODECLASS_OBJECT, &serverId, &hasComponentId,
-                             &serverCapabilitiesTypeId, NULL);
+                             UA_NODECLASS_OBJECT, &serverCapabilitiesTypeId, NULL);
 
     /* Begin ServerDiagnostics */
     UA_ObjectNode *serverdiagnostics = UA_NodeStore_newObjectNode();
     copyNames((UA_Node*)serverdiagnostics, "ServerDiagnostics");
     serverdiagnostics->nodeId.identifier.numeric = UA_NS0ID_SERVER_SERVERDIAGNOSTICS;
-    UA_Server_addNode_begin(server, &adminSession, (UA_Node*)serverdiagnostics, NULL);
+    UA_Server_addNode_begin(server, &adminSession, (UA_Node*)serverdiagnostics, &serverId,
+                            &hasComponentId, NULL);
     
     UA_VariableNode *enabledFlag = UA_NodeStore_newVariableNode();
     copyNames((UA_Node*)enabledFlag, "EnabledFlag");
@@ -1086,8 +1088,7 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
 
     /* Finish ServerDiagnostics */
     UA_Server_addNode_finish(server, &adminSession, &serverDiagnosticsId,
-                             UA_NODECLASS_OBJECT, &serverId, &hasComponentId,
-                             &serverDiagnosticsTypeId, NULL);
+                             UA_NODECLASS_OBJECT, &serverDiagnosticsTypeId, NULL);
 
     UA_VariableNode *serverstatus = UA_NodeStore_newVariableNode();
     copyNames((UA_Node*)serverstatus, "ServerStatus");
@@ -1323,8 +1324,7 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
 
     /* Finish adding the server object */
     UA_Server_addNode_finish(server, &adminSession, &serverId,
-                             UA_NODECLASS_OBJECT, &objectsId,
-                             &organizesId, &serverTypeId, NULL);
+                             UA_NODECLASS_OBJECT, &serverTypeId, NULL);
 
     return server;
 }

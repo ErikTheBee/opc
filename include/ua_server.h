@@ -810,9 +810,10 @@ UA_Server_setMethodNode_callback(UA_Server *server, const UA_NodeId methodNodeId
  * 2. Manually add children to the node, set a datasource (if it is a variable),
  *    and so on.
  * 3. Run ``UA_Server_addNode<Type>_finish`` on the node. This internally
- *    performs consistency checks and completes the instantiation. At this
- *    point, references to the parent and the type are added as well. When an
- *    error occurs, the node is deleted (together with its child nodes). */
+ *    performs consistency checks and completes the instantiation. For type
+ *    nodes, typeDefininition shall refer to the super type (with a hasSubType
+ *    reference to the node). When an error occurs, the node is deleted
+ *    (together with its child nodes). */
 /* The instantiation callback is used to track the addition of new nodes. It is
  * also called for all sub-nodes contained in an object or variable type node
  * that is instantiated. */
@@ -840,6 +841,8 @@ __UA_Server_addNode(UA_Server *server, UA_NodeClass nodeClass,
 UA_StatusCode UA_EXPORT
 __UA_Server_addNode_begin(UA_Server *server, UA_NodeClass nodeClass,
                           const UA_NodeId *requestedNewNodeId,
+                          const UA_NodeId *parentNodeId,
+                          const UA_NodeId *referenceTypeId,
                           const UA_QualifiedName *browseName,
                           const UA_NodeAttributes *attr,
                           const UA_DataType *attributeType,
@@ -847,12 +850,8 @@ __UA_Server_addNode_begin(UA_Server *server, UA_NodeClass nodeClass,
 
 /* Don't use this function. There are typed versions as inline functions. */
 UA_StatusCode UA_EXPORT
-__UA_Server_addNode_finish(UA_Server *server,
-                           const UA_NodeId *nodeId,
-                           UA_NodeClass nodeClass,
-                           const UA_NodeId *parentNodeId,
-                           const UA_NodeId *referenceTypeId,
-                           const UA_NodeId *typeDefinition,
+__UA_Server_addNode_finish(UA_Server *server, const UA_NodeId *nodeId,
+                           UA_NodeClass nodeClass, const UA_NodeId *typeDefinition,
                            UA_InstantiationCallback *instantiationCallback);
 
 static UA_INLINE UA_StatusCode
@@ -873,24 +872,23 @@ UA_Server_addVariableNode(UA_Server *server, const UA_NodeId requestedNewNodeId,
 
 static UA_INLINE UA_StatusCode
 UA_Server_addVariableNode_begin(UA_Server *server, const UA_NodeId requestedNewNodeId,
+                                const UA_NodeId parentNodeId,
+                                const UA_NodeId referenceTypeId,
                                 const UA_QualifiedName browseName,
                                 const UA_VariableAttributes attr,
                                 UA_NodeId *outNewNodeId) {
     return __UA_Server_addNode_begin(server, UA_NODECLASS_VARIABLE,
-                                     &requestedNewNodeId, &browseName,
-                                     (const UA_NodeAttributes*)&attr,
+                                     &requestedNewNodeId, &parentNodeId, &referenceTypeId,
+                                     &browseName, (const UA_NodeAttributes*)&attr,
                                      &UA_TYPES[UA_TYPES_VARIABLEATTRIBUTES],
                                      outNewNodeId);
 }
 
 static UA_INLINE UA_StatusCode
 UA_Server_addVariableNode_finish(UA_Server *server, const UA_NodeId nodeId,
-                                 const UA_NodeId parentNodeId,
-                                 const UA_NodeId referenceTypeId,
                                  const UA_NodeId typeDefinition,
                                  UA_InstantiationCallback *instantiationCallback) {
     return __UA_Server_addNode_finish(server, &nodeId, UA_NODECLASS_VARIABLE,
-                                      &parentNodeId, &referenceTypeId,
                                       &typeDefinition, instantiationCallback);
 }
 
@@ -930,24 +928,24 @@ UA_Server_addObjectNode(UA_Server *server, const UA_NodeId requestedNewNodeId,
 
 static UA_INLINE UA_StatusCode
 UA_Server_addObjectNode_begin(UA_Server *server, const UA_NodeId requestedNewNodeId,
+                              const UA_NodeId parentNodeId,
+                              const UA_NodeId referenceTypeId,
                               const UA_QualifiedName browseName,
                               const UA_ObjectAttributes attr,
                               UA_NodeId *outNewNodeId) {
     return __UA_Server_addNode_begin(server, UA_NODECLASS_OBJECT,
-                                     &requestedNewNodeId, &browseName,
-                                     (const UA_NodeAttributes*)&attr,
+                                     &requestedNewNodeId,
+                                     &parentNodeId, &referenceTypeId,
+                                     &browseName, (const UA_NodeAttributes*)&attr,
                                      &UA_TYPES[UA_TYPES_OBJECTATTRIBUTES],
                                      outNewNodeId);
 }
 
 static UA_INLINE UA_StatusCode
 UA_Server_addObjectNode_finish(UA_Server *server, const UA_NodeId nodeId,
-                               const UA_NodeId parentNodeId,
-                               const UA_NodeId referenceTypeId,
                                const UA_NodeId typeDefinition,
                                UA_InstantiationCallback *instantiationCallback) {
     return __UA_Server_addNode_finish(server, &nodeId, UA_NODECLASS_OBJECT,
-                                      &parentNodeId, &referenceTypeId,
                                       &typeDefinition, instantiationCallback);
 }
 

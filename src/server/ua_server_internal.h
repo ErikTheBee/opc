@@ -147,14 +147,15 @@ void UA_Server_deleteAllRepeatedJobs(UA_Server *server);
 
 /* Add node to the nodestore */
 UA_StatusCode
-UA_Server_addNode_begin(UA_Server *server, UA_Session *session, UA_Node *node,
+UA_Server_addNode_begin(UA_Server *server, UA_Session *session,
+                        UA_Node *node, const UA_NodeId *parentNodeId,
+                        const UA_NodeId *parentReferenceTypeId,
                         UA_NodeId *addedNodeId);
 
 /* Check / instantiate node and create reference to parent */
 UA_StatusCode
 UA_Server_addNode_finish(UA_Server *server, UA_Session *session, const UA_NodeId *nodeId,
-                         UA_NodeClass nodeClass, const UA_NodeId *parentNodeId,
-                         const UA_NodeId *referenceTypeId, const UA_NodeId *typeDefinition,
+                         UA_NodeClass nodeClass, const UA_NodeId *typeDefinition,
                          UA_InstantiationCallback *instantiationCallback);
 
 /* Add a node and check/instantiate */
