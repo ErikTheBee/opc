@@ -1012,17 +1012,6 @@ UA_Server_addDataTypeNode(UA_Server *server,
                                instantiationCallback, outNewNodeId);
 }
 
-UA_StatusCode UA_EXPORT
-UA_Server_addDataSourceVariableNode(UA_Server *server,
-                                    const UA_NodeId requestedNewNodeId,
-                                    const UA_NodeId parentNodeId,
-                                    const UA_NodeId referenceTypeId,
-                                    const UA_QualifiedName browseName,
-                                    const UA_NodeId typeDefinition,
-                                    const UA_VariableAttributes attr,
-                                    const UA_DataSource dataSource,
-                                    UA_NodeId *outNewNodeId);
-
 #ifdef UA_ENABLE_METHODCALLS
 UA_StatusCode UA_EXPORT
 UA_Server_addMethodNode(UA_Server *server, const UA_NodeId requestedNewNodeId,
