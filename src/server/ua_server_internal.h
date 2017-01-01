@@ -145,26 +145,6 @@ UA_StatusCode UA_Server_delayedCallback(UA_Server *server, UA_ServerCallback cal
 UA_StatusCode UA_Server_delayedFree(UA_Server *server, void *data);
 void UA_Server_deleteAllRepeatedJobs(UA_Server *server);
 
-/* Add node to the nodestore */
-UA_StatusCode
-UA_Server_addNode_begin(UA_Server *server, UA_Session *session,
-                        UA_Node *node, const UA_NodeId *parentNodeId,
-                        const UA_NodeId *parentReferenceTypeId,
-                        UA_NodeId *addedNodeId);
-
-/* Check / instantiate node and create reference to parent */
-UA_StatusCode
-UA_Server_addNode_finish(UA_Server *server, UA_Session *session, const UA_NodeId *nodeId,
-                         UA_NodeClass nodeClass, const UA_NodeId *typeDefinition,
-                         UA_InstantiationCallback *instantiationCallback);
-
-/* Add a node and check/instantiate */
-UA_StatusCode
-UA_Server_addNode(UA_Server *server, UA_Session *session, UA_Node *node,
-                  const UA_NodeId *parentNodeId, const UA_NodeId *referenceTypeId,
-                  const UA_NodeId *typeDefinition, UA_InstantiationCallback *instantiationCallback,
-                  UA_NodeId *addedNodeId);
-
 /*********************/
 /* Utility Functions */
 /*********************/
@@ -197,8 +177,8 @@ isNodeInTree(UA_NodeStore *ns, const UA_NodeId *leafNode,
              const UA_NodeId *nodeToFind, const UA_NodeId *referenceTypeIds,
              size_t referenceTypeIdsSize);
 
-const UA_Node *
-getNodeType(UA_Server *server, const UA_Node *node);
+void
+getNodeType(UA_Server *server, const UA_Node *node, UA_NodeId *typeId);
 
 /***************************************/
 /* Check Information Model Consistency */
