@@ -762,6 +762,9 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     /* The Server Object */
     /*********************/
 
+    UA_Variant var; /* Is used for all variable-content. UA_Variant_set...
+                       resets the variant internally */
+
     /* Begin Server object */ 
     UA_ObjectAttributes server_attr;
     UA_ObjectAttributes_init(&server_attr);
@@ -788,13 +791,10 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
                              UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
                              UA_NODEID_NUMERIC(0, UA_NS0ID_PROPERTYTYPE), NULL);
 
-    UA_Variant serverarray;
-    UA_Variant_setArray(&serverarray,
-                        &server->config.applicationDescription.applicationUri, 1,
+    UA_Variant_setArray(&var, &server->config.applicationDescription.applicationUri, 1,
                         &UA_TYPES[UA_TYPES_STRING]);
-    addVariableNode(server, UA_NS0ID_SERVER_SERVERARRAY, "ServerArray", 1,
-                    &UA_TYPES[UA_TYPES_STRING].typeId, &serverarray, UA_NS0ID_SERVER,
-                    UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERARRAY, "ServerArray", 1, &UA_TYPES[UA_TYPES_STRING].typeId,
+                    &var, UA_NS0ID_SERVER, UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
 
     /* Begin ServerCapabilities */
     UA_ObjectAttributes servercap_attr;
@@ -803,19 +803,17 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     UA_Server_addObjectNode_begin(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERCAPABILITIES),
                                   UA_QUALIFIEDNAME(0, "ServerCapabilities"), servercap_attr, NULL);
     
-    UA_Variant localeidarray;
     UA_String enLocale = UA_STRING("en");
-    UA_Variant_setArray(&localeidarray, &enLocale, 1, &UA_TYPES[UA_TYPES_STRING]);
+    UA_Variant_setArray(&var, &enLocale, 1, &UA_TYPES[UA_TYPES_STRING]);
     addVariableNode(server, UA_NS0ID_SERVER_SERVERCAPABILITIES_LOCALEIDARRAY, "LocaleIdArray",
-                    1, &UA_TYPES[UA_TYPES_STRING].typeId, &localeidarray,
-                    UA_NS0ID_SERVER_SERVERCAPABILITIES, UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
+                    1, &UA_TYPES[UA_TYPES_STRING].typeId, &var, UA_NS0ID_SERVER_SERVERCAPABILITIES,
+                    UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
 
-    UA_Variant maxCP;
     UA_UInt16 maxBrowseContinuationPoints = 0; /* no restriction */
-    UA_Variant_setScalar(&maxCP, &maxBrowseContinuationPoints, &UA_TYPES[UA_TYPES_UINT16]);
+    UA_Variant_setScalar(&var, &maxBrowseContinuationPoints, &UA_TYPES[UA_TYPES_UINT16]);
     addVariableNode(server, UA_NS0ID_SERVER_SERVERCAPABILITIES_MAXBROWSECONTINUATIONPOINTS,
                     "MaxBrowseContinuationPoints", -1, &UA_TYPES[UA_TYPES_UINT16].typeId,
-                    &maxCP, UA_NS0ID_SERVER_SERVERCAPABILITIES, UA_NS0ID_HASPROPERTY,
+                    &var, UA_NS0ID_SERVER_SERVERCAPABILITIES, UA_NS0ID_HASPROPERTY,
                     UA_NS0ID_PROPERTYTYPE);
 
     /* ServerProfileArray */
@@ -833,44 +831,34 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
 #ifdef UA_ENABLE_SUBSCRIPTIONS
     ADDPROFILEARRAY("http://opcfoundation.org/UA-Profile/Server/EmbeddedDataChangeSubscription");
 #endif
-    UA_Variant serverprofilearray;
-    UA_Variant_setArray(&serverprofilearray, &profileArray,
-                        profileArraySize, &UA_TYPES[UA_TYPES_STRING]);
+    UA_Variant_setArray(&var, &profileArray, profileArraySize, &UA_TYPES[UA_TYPES_STRING]);
     addVariableNode(server, UA_NS0ID_SERVER_SERVERCAPABILITIES_SERVERPROFILEARRAY, "ServerProfileArray",
-                    1, &UA_TYPES[UA_TYPES_STRING].typeId, &serverprofilearray,
+                    1, &UA_TYPES[UA_TYPES_STRING].typeId, &var, UA_NS0ID_SERVER_SERVERCAPABILITIES,
+                    UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
+
+    /* TODO: dataType = UA_TYPES[UA_TYPES_SIGNEDSOFTWARECERTIFICATE].typeId; */
+    UA_Variant_setArray(&var, NULL, 0, &UA_TYPES[UA_TYPES_SIGNEDSOFTWARECERTIFICATE]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERCAPABILITIES_SOFTWARECERTIFICATES, "SoftwareCertificates",
+                    1, &UA_TYPES[UA_TYPES_VARIANT].typeId, &var, UA_NS0ID_SERVER_SERVERCAPABILITIES,
+                    UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
+
+    UA_UInt16 maxQCP = 0;
+    UA_Variant_setScalar(&var, &maxQCP, &UA_TYPES[UA_TYPES_UINT16]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERCAPABILITIES_MAXQUERYCONTINUATIONPOINTS,
+                    "MaxQueryContinuationPoints", -1, &UA_TYPES[UA_TYPES_UINT16].typeId, &var,
                     UA_NS0ID_SERVER_SERVERCAPABILITIES, UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
 
-    UA_Variant softwarecertificates;
-    UA_Variant_setArray(&softwarecertificates, NULL, 0, &UA_TYPES[UA_TYPES_SIGNEDSOFTWARECERTIFICATE]);
-    /* TODO: dataType = UA_TYPES[UA_TYPES_SIGNEDSOFTWARECERTIFICATE].typeId; */
-    const UA_NodeId basedatatypeid = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE);
-    addVariableNode(server, UA_NS0ID_SERVER_SERVERCAPABILITIES_SOFTWARECERTIFICATES, "SoftwareCertificates", 1,
-                    &basedatatypeid, &softwarecertificates, UA_NS0ID_SERVER_SERVERCAPABILITIES,
-                    UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
-
-    UA_Variant maxQueryContinuationPoints;
-    UA_UInt16 maxQCP = 0;
-    UA_Variant_setScalar(&maxQueryContinuationPoints, &maxQCP, &UA_TYPES[UA_TYPES_UINT16]);
-    addVariableNode(server, UA_NS0ID_SERVER_SERVERCAPABILITIES_MAXQUERYCONTINUATIONPOINTS,
-                    "MaxQueryContinuationPoints", -1, &UA_TYPES[UA_TYPES_UINT16].typeId,
-                    &maxQueryContinuationPoints, UA_NS0ID_SERVER_SERVERCAPABILITIES,
-                    UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
-
-    UA_Variant maxHistoryContinuationPoints;
     UA_UInt16 maxHCP = 0;
-    UA_Variant_setScalar(&maxHistoryContinuationPoints, &maxHCP, &UA_TYPES[UA_TYPES_UINT16]);
+    UA_Variant_setScalar(&var, &maxHCP, &UA_TYPES[UA_TYPES_UINT16]);
     addVariableNode(server, UA_NS0ID_SERVER_SERVERCAPABILITIES_MAXHISTORYCONTINUATIONPOINTS,
                     "MaxHistoryContinuationPoints", -1, &UA_TYPES[UA_TYPES_UINT16].typeId,
-                    &maxHistoryContinuationPoints, UA_NS0ID_SERVER_SERVERCAPABILITIES,
-                    UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
+                    &var, UA_NS0ID_SERVER_SERVERCAPABILITIES, UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
 
-    UA_Variant minSupportedSampleRate;
     UA_Double minSSR = 0.0;
-    UA_Variant_setScalar(&minSupportedSampleRate, &minSSR, &UA_TYPES[UA_TYPES_DOUBLE]);
+    UA_Variant_setScalar(&var, &minSSR, &UA_TYPES[UA_TYPES_DOUBLE]);
     addVariableNode(server, UA_NS0ID_SERVER_SERVERCAPABILITIES_MINSUPPORTEDSAMPLERATE,
-                    "MinSupportedSampleRate", -1, &UA_TYPES[UA_TYPES_DOUBLE].typeId,
-                    &minSupportedSampleRate, UA_NS0ID_SERVER_SERVERCAPABILITIES,
-                    UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
+                    "MinSupportedSampleRate", -1, &UA_TYPES[UA_TYPES_DOUBLE].typeId, &var,
+                    UA_NS0ID_SERVER_SERVERCAPABILITIES, UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
 
     addObjectNode(server, "ModellingRules", UA_NS0ID_SERVER_SERVERCAPABILITIES_MODELLINGRULES,
                   UA_NS0ID_SERVER_SERVERCAPABILITIES, UA_NS0ID_HASPROPERTY, UA_NS0ID_FOLDERTYPE);
@@ -884,29 +872,25 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
                              UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
                              UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCAPABILITIESTYPE), NULL);
 
-/*     /\* Begin ServerDiagnostics *\/ */
-/*     UA_ObjectNode *serverdiagnostics = UA_NodeStore_newObjectNode(); */
-/*     copyNames((UA_Node*)serverdiagnostics, "ServerDiagnostics"); */
-/*     serverdiagnostics->nodeId.identifier.numeric = UA_NS0ID_SERVER_SERVERDIAGNOSTICS; */
-/*     UA_Server_addNode_begin(server, &adminSession, (UA_Node*)serverdiagnostics, &serverId, */
-/*                             &hasComponentId, NULL); */
+    /* Begin ServerDiagnostics */
+    UA_ObjectAttributes serverdiag_attr;
+    UA_ObjectAttributes_init(&serverdiag_attr);
+    serverdiag_attr.displayName = UA_LOCALIZEDTEXT("en_US", "ServerDiagnostics");
+    UA_Server_addObjectNode_begin(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERDIAGNOSTICS),
+                                  UA_QUALIFIEDNAME(0, "ServerDiagnostics"), serverdiag_attr, NULL);
     
-/*     UA_VariableNode *enabledFlag = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)enabledFlag, "EnabledFlag"); */
-/*     enabledFlag->nodeId.identifier.numeric = UA_NS0ID_SERVER_SERVERDIAGNOSTICS_ENABLEDFLAG; */
-/*     UA_Variant_setScalar(&enabledFlag->value.data.value.value, UA_Boolean_new(), */
-/*                          &UA_TYPES[UA_TYPES_BOOLEAN]); */
-/*     enabledFlag->value.data.value.hasValue = true; */
-/*     enabledFlag->dataType = UA_TYPES[UA_TYPES_BOOLEAN].typeId; */
-/*     enabledFlag->valueRank = -1; */
-/*     enabledFlag->minimumSamplingInterval = 1.0; */
-/*     addNodeInternalWithType(server, (UA_Node*)enabledFlag, UA_NS0ID_SERVER_SERVERDIAGNOSTICS, */
-/*                             UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE); */
+    UA_Boolean enabledFlag = false;
+    UA_Variant_setScalar(&var, &enabledFlag, &UA_TYPES[UA_TYPES_BOOLEAN]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERDIAGNOSTICS_ENABLEDFLAG, "EnabledFlag", -1,
+                    &UA_TYPES[UA_TYPES_BOOLEAN].typeId, &var, UA_NS0ID_SERVER_SERVERDIAGNOSTICS,
+                    UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
 
-/*     /\* Finish ServerDiagnostics *\/ */
-/*     UA_Server_addNode_finish(server, &adminSession, &serverDiagnosticsId, */
-/*                              UA_NODECLASS_OBJECT, &serverDiagnosticsTypeId, NULL); */
+    /* Finish ServerDiagnostics */
+    UA_Server_addNode_finish(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERDIAGNOSTICS),
+                             UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER), UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                             UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERDIAGNOSTICSTYPE), NULL);
 
+    // TODO: Begin Serverstatus
     addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS, "ServerStatus", -1,
                     &UA_TYPES[UA_TYPES_SERVERSTATUSDATATYPE].typeId, NULL,
                     UA_NS0ID_SERVER, UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE);
@@ -914,239 +898,155 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     UA_Server_setVariableNode_dataSource(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS),
                                          statusDS);
 
-/*     UA_VariableNode *starttime = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)starttime, "StartTime"); */
-/*     starttime->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_STARTTIME); */
-/*     UA_Variant_setScalarCopy(&starttime->value.data.value.value, */
-/*                              &server->startTime, &UA_TYPES[UA_TYPES_DATETIME]); */
-/*     starttime->value.data.value.hasValue = true; */
-/*     starttime->dataType = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE); /\* UTC Time type *\/ */
-/*     starttime->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)starttime, UA_NS0ID_SERVER_SERVERSTATUS, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE); */
+    UA_Variant_setScalar(&var, &server->startTime, &UA_TYPES[UA_TYPES_DATETIME]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS_STARTTIME, "StartTime", -1,
+                    &UA_TYPES[UA_TYPES_DATETIME].typeId, &var, UA_NS0ID_SERVER_SERVERSTATUS,
+                    UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE);
 
-/*     UA_VariableNode *currenttime = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)currenttime, "CurrentTime"); */
-/*     currenttime->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME); */
-/*     currenttime->valueSource = UA_VALUESOURCE_DATASOURCE; */
-/*     currenttime->value.dataSource = (UA_DataSource) {.handle = NULL, .read = readCurrentTime, */
-/*                                                      .write = NULL}; */
-/*     currenttime->dataType = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE); /\* TODO: UTC Time type *\/ */
-/*     currenttime->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)currenttime, UA_NS0ID_SERVER_SERVERSTATUS, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE); */
+    /* TODO: UTC Time Type */
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME, "CurrentTime", -1,
+                    &UA_TYPES[UA_TYPES_DATETIME].typeId, NULL, UA_NS0ID_SERVER_SERVERSTATUS,
+                    UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE);
+    UA_DataSource currentDS = {.handle = NULL, .read = readCurrentTime, .write = NULL};
+    const UA_NodeId currentTimeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME);
+    UA_Server_setVariableNode_dataSource(server, currentTimeId, currentDS);
 
-/*     UA_VariableNode *state = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)state, "State"); */
-/*     state->nodeId.identifier.numeric = UA_NS0ID_SERVER_SERVERSTATUS_STATE; */
-/*     UA_Variant_setScalar(&state->value.data.value.value, UA_ServerState_new(), */
-/*                          &UA_TYPES[UA_TYPES_SERVERSTATE]); */
-/*     state->value.data.value.hasValue = true; */
-/*     state->dataType = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE); /\* TODO: ServerState *\/ */
-/*     state->valueRank = -1; */
-/*     state->minimumSamplingInterval = 500.0f; */
-/*     addNodeInternalWithType(server, (UA_Node*)state, UA_NS0ID_SERVER_SERVERSTATUS, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE); */
+    UA_ServerState state = UA_SERVERSTATE_RUNNING;
+    UA_Variant_setScalar(&var, &state, &UA_TYPES[UA_TYPES_SERVERSTATE]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS_STATE, "State", -1,
+                    &UA_TYPES[UA_TYPES_SERVERSTATE].typeId, &var,
+                    UA_NS0ID_SERVER_SERVERSTATUS, UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE);
 
-/*     UA_VariableNode *buildinfo = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)buildinfo, "BuildInfo"); */
-/*     buildinfo->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO); */
-/*     UA_Variant_setScalarCopy(&buildinfo->value.data.value.value, */
-/*                              &server->config.buildInfo, &UA_TYPES[UA_TYPES_BUILDINFO]); */
-/*     buildinfo->value.data.value.hasValue = true; */
-/*     buildinfo->dataType = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE); /\* TODO: BuildInfo *\/ */
-/*     buildinfo->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)buildinfo, UA_NS0ID_SERVER_SERVERSTATUS, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_BUILDINFOTYPE); */
+    UA_Variant_setScalar(&var, &server->config.buildInfo, &UA_TYPES[UA_TYPES_BUILDINFO]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO, "BuildInfo", -1,
+                    &UA_TYPES[UA_TYPES_BUILDINFO].typeId, &var, UA_NS0ID_SERVER_SERVERSTATUS,
+                    UA_NS0ID_HASCOMPONENT, UA_NS0ID_BUILDINFOTYPE);
 
-/*     UA_VariableNode *producturi = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)producturi, "ProductUri"); */
-/*     producturi->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO_PRODUCTURI); */
-/*     UA_Variant_setScalarCopy(&producturi->value.data.value.value, &server->config.buildInfo.productUri, */
-/*                              &UA_TYPES[UA_TYPES_STRING]); */
-/*     producturi->value.data.value.hasValue = true; */
-/*     producturi->dataType = UA_TYPES[UA_TYPES_STRING].typeId; */
-/*     producturi->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)producturi, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE); */
+    UA_Variant_setScalar(&var, &server->config.buildInfo.productUri, &UA_TYPES[UA_TYPES_STRING]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO_PRODUCTURI, "ProductUri", -1,
+                    &UA_TYPES[UA_TYPES_STRING].typeId, &var, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO,
+                    UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE);
 
-/*     UA_VariableNode *manufacturername = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)manufacturername, "ManufacturerName"); */
-/*     manufacturername->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO_MANUFACTURERNAME); */
-/*     UA_Variant_setScalarCopy(&manufacturername->value.data.value.value, */
-/*                              &server->config.buildInfo.manufacturerName, */
-/*                              &UA_TYPES[UA_TYPES_STRING]); */
-/*     manufacturername->value.data.value.hasValue = true; */
-/*     manufacturername->dataType = UA_TYPES[UA_TYPES_STRING].typeId; */
-/*     manufacturername->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)manufacturername, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE); */
+    UA_Variant_setScalar(&var, &server->config.buildInfo.manufacturerName, &UA_TYPES[UA_TYPES_STRING]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO_MANUFACTURERNAME, "ManufacturerName", -1,
+                    &UA_TYPES[UA_TYPES_STRING].typeId, &var, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO,
+                    UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE);
 
-/*     UA_VariableNode *productname = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)productname, "ProductName"); */
-/*     productname->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO_PRODUCTNAME); */
-/*     UA_Variant_setScalarCopy(&productname->value.data.value.value, &server->config.buildInfo.productName, */
-/*                              &UA_TYPES[UA_TYPES_STRING]); */
-/*     productname->value.data.value.hasValue = true; */
-/*     productname->dataType = UA_TYPES[UA_TYPES_STRING].typeId; */
-/*     productname->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)productname, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE); */
+    UA_Variant_setScalar(&var, &server->config.buildInfo.productName, &UA_TYPES[UA_TYPES_STRING]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO_PRODUCTNAME, "ProductName", -1,
+                    &UA_TYPES[UA_TYPES_STRING].typeId, &var, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO,
+                    UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE);
 
-/*     UA_VariableNode *softwareversion = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)softwareversion, "SoftwareVersion"); */
-/*     softwareversion->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO_SOFTWAREVERSION); */
-/*     UA_Variant_setScalarCopy(&softwareversion->value.data.value.value, */
-/*                              &server->config.buildInfo.softwareVersion, &UA_TYPES[UA_TYPES_STRING]); */
-/*     softwareversion->value.data.value.hasValue = true; */
-/*     softwareversion->dataType = UA_TYPES[UA_TYPES_STRING].typeId; */
-/*     softwareversion->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)softwareversion, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE); */
+    UA_Variant_setScalar(&var, &server->config.buildInfo.softwareVersion, &UA_TYPES[UA_TYPES_STRING]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO_SOFTWAREVERSION, "SoftwareVersion", -1,
+                    &UA_TYPES[UA_TYPES_STRING].typeId, &var, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO,
+                    UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE);
 
-/*     UA_VariableNode *buildnumber = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)buildnumber, "BuildNumber"); */
-/*     buildnumber->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO_BUILDNUMBER); */
-/*     UA_Variant_setScalarCopy(&buildnumber->value.data.value.value, &server->config.buildInfo.buildNumber, */
-/*                              &UA_TYPES[UA_TYPES_STRING]); */
-/*     buildnumber->value.data.value.hasValue = true; */
-/*     buildnumber->dataType = UA_TYPES[UA_TYPES_STRING].typeId; */
-/*     buildnumber->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)buildnumber, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE); */
+    UA_Variant_setScalar(&var, &server->config.buildInfo.buildNumber, &UA_TYPES[UA_TYPES_STRING]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO_BUILDNUMBER, "BuildNumber", -1,
+                    &UA_TYPES[UA_TYPES_STRING].typeId, &var, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO,
+                    UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE);
 
-/*     UA_VariableNode *builddate = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)builddate, "BuildDate"); */
-/*     builddate->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO_BUILDDATE); */
-/*     UA_Variant_setScalarCopy(&builddate->value.data.value.value, &server->config.buildInfo.buildDate, */
-/*                              &UA_TYPES[UA_TYPES_DATETIME]); */
-/*     builddate->value.data.value.hasValue = true; */
-/*     builddate->dataType = UA_TYPES[UA_TYPES_DATETIME].typeId; */
-/*     builddate->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)builddate, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE); */
+    UA_Variant_setScalar(&var, &server->config.buildInfo.buildDate, &UA_TYPES[UA_TYPES_DATETIME]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO_BUILDDATE, "BuildDate", -1,
+                    &UA_TYPES[UA_TYPES_DATETIME].typeId, &var, UA_NS0ID_SERVER_SERVERSTATUS_BUILDINFO,
+                    UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE);
 
-/*     UA_VariableNode *secondstillshutdown = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)secondstillshutdown, "SecondsTillShutdown"); */
-/*     secondstillshutdown->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_SECONDSTILLSHUTDOWN); */
-/*     UA_Variant_setScalar(&secondstillshutdown->value.data.value.value, UA_UInt32_new(), */
-/*                          &UA_TYPES[UA_TYPES_UINT32]); */
-/*     secondstillshutdown->value.data.value.hasValue = true; */
-/*     secondstillshutdown->dataType = UA_TYPES[UA_TYPES_UINT32].typeId; */
-/*     secondstillshutdown->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)secondstillshutdown, UA_NS0ID_SERVER_SERVERSTATUS, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE); */
+    /* Finish BuildInfo */
 
-/*     UA_VariableNode *shutdownreason = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)shutdownreason, "ShutdownReason"); */
-/*     shutdownreason->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_SHUTDOWNREASON); */
-/*     UA_Variant_setScalar(&shutdownreason->value.data.value.value, UA_LocalizedText_new(), */
-/*                          &UA_TYPES[UA_TYPES_LOCALIZEDTEXT]); */
-/*     shutdownreason->value.data.value.hasValue = true; */
-/*     shutdownreason->dataType = UA_TYPES[UA_TYPES_LOCALIZEDTEXT].typeId; */
-/*     shutdownreason->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)shutdownreason, UA_NS0ID_SERVER_SERVERSTATUS, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE); */
+    UA_UInt32 secondsTillShutdown = 0;
+    UA_Variant_setScalar(&var, &secondsTillShutdown, &UA_TYPES[UA_TYPES_UINT32]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS_SECONDSTILLSHUTDOWN, "SecondsTillShutdown", -1,
+                    &UA_TYPES[UA_TYPES_UINT32].typeId, &var, UA_NS0ID_SERVER_SERVERSTATUS,
+                    UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE);
 
-/*     UA_VariableNode *servicelevel = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)servicelevel, "ServiceLevel"); */
-/*     servicelevel->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVICELEVEL); */
-/*     servicelevel->valueSource = UA_VALUESOURCE_DATASOURCE; */
-/*     servicelevel->value.dataSource = (UA_DataSource) {.handle = server, .read = readServiceLevel, */
-/*                                                       .write = NULL}; */
-/*     servicelevel->dataType = UA_TYPES[UA_TYPES_BYTE].typeId; */
-/*     servicelevel->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)servicelevel, UA_NS0ID_SERVER, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_PROPERTYTYPE); */
+    UA_LocalizedText shutdownReason;
+    UA_LocalizedText_init(&shutdownReason);
+    UA_Variant_setScalar(&var, &shutdownReason, &UA_TYPES[UA_TYPES_LOCALIZEDTEXT]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERSTATUS_SHUTDOWNREASON, "ShutdownReason", -1,
+                    &UA_TYPES[UA_TYPES_LOCALIZEDTEXT].typeId, &var, UA_NS0ID_SERVER_SERVERSTATUS,
+                    UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEDATAVARIABLETYPE);
+    
+    /* Finish ServerStatus */
 
-/*     UA_VariableNode *auditing = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)auditing, "Auditing"); */
-/*     auditing->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_AUDITING); */
-/*     auditing->valueSource = UA_VALUESOURCE_DATASOURCE; */
-/*     auditing->value.dataSource = (UA_DataSource) {.handle = server, .read = readAuditing, .write = NULL}; */
-/*     auditing->dataType = UA_TYPES[UA_TYPES_BOOLEAN].typeId; */
-/*     auditing->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)auditing, UA_NS0ID_SERVER, */
-/*                             UA_NS0ID_HASCOMPONENT, UA_NS0ID_PROPERTYTYPE); */
+    addVariableNode(server, UA_NS0ID_SERVER_SERVICELEVEL, "ServiceLevel", -1,
+                    &UA_TYPES[UA_TYPES_BYTE].typeId, NULL,
+                    UA_NS0ID_SERVER, UA_NS0ID_HASCOMPONENT, UA_NS0ID_PROPERTYTYPE);
+    UA_DataSource servicelevelDS = {.handle = server, .read = readServiceLevel, .write = NULL};
+    UA_Server_setVariableNode_dataSource(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVICELEVEL),
+                                         servicelevelDS);
 
-/*     UA_ObjectNode *vendorServerInfo = UA_NodeStore_newObjectNode(); */
-/*     copyNames((UA_Node*)vendorServerInfo, "VendorServerInfo"); */
-/*     vendorServerInfo->nodeId.identifier.numeric = UA_NS0ID_SERVER_VENDORSERVERINFO; */
-/*     addNodeInternalWithType(server, (UA_Node*)vendorServerInfo, UA_NS0ID_SERVER, */
-/*                             UA_NS0ID_HASPROPERTY, UA_NS0ID_BASEOBJECTTYPE); */
-/*     /\* */
-/*     addReferenceInternal(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_VENDORSERVERINFO), */
-/*                          nodeIdHasTypeDefinition, UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_VENDORSERVERINFOTYPE), true); */
-/*     *\/ */
+    addVariableNode(server, UA_NS0ID_SERVER_AUDITING, "Auditing", -1,
+                    &UA_TYPES[UA_TYPES_BOOLEAN].typeId, NULL,
+                    UA_NS0ID_SERVER, UA_NS0ID_HASCOMPONENT, UA_NS0ID_PROPERTYTYPE);
+    UA_DataSource auditingDS = {.handle = server, .read = readAuditing, .write = NULL};
+    UA_Server_setVariableNode_dataSource(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_AUDITING),
+                                         auditingDS);
 
+    addObjectNode(server, "VendorServerInfo", UA_NS0ID_SERVER_VENDORSERVERINFO, UA_NS0ID_SERVER,
+                  UA_NS0ID_HASCOMPONENT, UA_NS0ID_VENDORSERVERINFOTYPE);
 
-/*     UA_ObjectNode *serverRedundancy = UA_NodeStore_newObjectNode(); */
-/*     copyNames((UA_Node*)serverRedundancy, "ServerRedundancy"); */
-/*     serverRedundancy->nodeId.identifier.numeric = UA_NS0ID_SERVER_SERVERREDUNDANCY; */
-/*     addNodeInternalWithType(server, (UA_Node*)serverRedundancy, UA_NS0ID_SERVER, */
-/*                             UA_NS0ID_HASPROPERTY, UA_NS0ID_BASEOBJECTTYPE); */
-/*     /\* */
-/*     addReferenceInternal(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERREDUNDANCY), */
-/*                          nodeIdHasTypeDefinition, UA_EXPANDEDNODEID_NUMERIC(0, UA_NS0ID_SERVERREDUNDANCYTYPE), true); */
-/*     *\/ */
+    addObjectNode(server, "ServerRedundancy", UA_NS0ID_SERVER_SERVERREDUNDANCY, UA_NS0ID_SERVER,
+                  UA_NS0ID_HASCOMPONENT, UA_NS0ID_SERVERREDUNDANCYTYPE);
 
-/*     UA_VariableNode *redundancySupport = UA_NodeStore_newVariableNode(); */
-/*     copyNames((UA_Node*)redundancySupport, "RedundancySupport"); */
-/*     redundancySupport->nodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERREDUNDANCY_REDUNDANCYSUPPORT); */
-/*     //FIXME: enum is needed for type letting it uninitialized for now */
-/*     UA_Variant_setScalar(&redundancySupport->value.data.value.value, UA_Int32_new(), */
-/*                          &UA_TYPES[UA_TYPES_INT32]); */
-/*     redundancySupport->value.data.value.hasValue = true; */
-/*     redundancySupport->dataType = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE); */
-/*     redundancySupport->valueRank = -1; */
-/*     addNodeInternalWithType(server, (UA_Node*)redundancySupport, UA_NS0ID_SERVER_SERVERREDUNDANCY, */
-/*                             UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE); */
+    UA_Int32 rS = 0; /* TODO: use enum type */
+    UA_Variant_setScalar(&var, &rS, &UA_TYPES[UA_TYPES_INT32]);
+    addVariableNode(server, UA_NS0ID_SERVER_SERVERREDUNDANCY_REDUNDANCYSUPPORT, "RedundancySupport",
+                    -1, &UA_TYPES[UA_TYPES_VARIANT].typeId, &var,
+                    UA_NS0ID_SERVER_SERVERREDUNDANCY, UA_NS0ID_HASPROPERTY,
+                    UA_NS0ID_PROPERTYTYPE);
 
-/* #if defined(UA_ENABLE_METHODCALLS) && defined(UA_ENABLE_SUBSCRIPTIONS) */
-/*     UA_Argument inputArguments; */
-/*     UA_Argument_init(&inputArguments); */
-/*     inputArguments.dataType = UA_TYPES[UA_TYPES_UINT32].typeId; */
-/*     inputArguments.name = UA_STRING("SubscriptionId"); */
-/*     inputArguments.valueRank = -1; /\* scalar argument *\/ */
+#if defined(UA_ENABLE_METHODCALLS) && defined(UA_ENABLE_SUBSCRIPTIONS)
+    /* Add method node */
+    UA_MethodAttributes addmethodattributes;
+    UA_MethodAttributes_init(&addmethodattributes);
+    addmethodattributes.displayName = UA_LOCALIZEDTEXT("", "GetMonitoredItems");
+    addmethodattributes.executable = true;
+    addmethodattributes.userExecutable = true;
+    UA_Server_addMethodNode_begin(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_GETMONITOREDITEMS),
+                                  UA_QUALIFIEDNAME(0, "GetMonitoredItems"),
+                                  addmethodattributes,
+                                  GetMonitoredItems, /* callback of the method node */
+                                  NULL, /* handle passed with the callback */
+                                  NULL);
 
-/*     UA_Argument outputArguments[2]; */
-/*     UA_Argument_init(&outputArguments[0]); */
-/*     outputArguments[0].dataType = UA_TYPES[UA_TYPES_UINT32].typeId; */
-/*     outputArguments[0].name = UA_STRING("ServerHandles"); */
-/*     outputArguments[0].valueRank = 1; */
+    /* Add the arguments manually to get the nodeids right */
+    UA_Argument inputArguments;
+    UA_Argument_init(&inputArguments);
+    inputArguments.dataType = UA_TYPES[UA_TYPES_UINT32].typeId;
+    inputArguments.name = UA_STRING("SubscriptionId");
+    inputArguments.valueRank = -1; /* scalar argument */
+    UA_Variant vInputArgs;
+    UA_Variant_setArray(&vInputArgs, &inputArguments, 1, &UA_TYPES[UA_TYPES_ARGUMENT]);
+    addVariableNode(server, UA_NS0ID_SERVER_GETMONITOREDITEMS_INPUTARGUMENTS,
+                    "InputArguments", 1, &UA_TYPES[UA_TYPES_ARGUMENT].typeId, &vInputArgs,
+                    UA_NS0ID_SERVER_GETMONITOREDITEMS, UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
 
-/*     UA_Argument_init(&outputArguments[1]); */
-/*     outputArguments[1].dataType = UA_TYPES[UA_TYPES_UINT32].typeId; */
-/*     outputArguments[1].name = UA_STRING("ClientHandles"); */
-/*     outputArguments[1].valueRank = 1; */
+    UA_Argument outputArguments[2];
+    UA_Argument_init(&outputArguments[0]);
+    outputArguments[0].dataType = UA_TYPES[UA_TYPES_UINT32].typeId;
+    outputArguments[0].name = UA_STRING("ServerHandles");
+    outputArguments[0].valueRank = 1;
+    UA_Argument_init(&outputArguments[1]);
+    outputArguments[1].dataType = UA_TYPES[UA_TYPES_UINT32].typeId;
+    outputArguments[1].name = UA_STRING("ClientHandles");
+    outputArguments[1].valueRank = 1;
+    UA_Variant vOutputArgs;
+    UA_Variant_setArray(&vOutputArgs, &outputArguments, 2, &UA_TYPES[UA_TYPES_ARGUMENT]);
+    addVariableNode(server, UA_NS0ID_SERVER_GETMONITOREDITEMS_OUTPUTARGUMENTS,
+                    "OutputArguments", 1, &UA_TYPES[UA_TYPES_ARGUMENT].typeId, &vOutputArgs,
+                    UA_NS0ID_SERVER_GETMONITOREDITEMS, UA_NS0ID_HASPROPERTY, UA_NS0ID_PROPERTYTYPE);
 
-/*     UA_MethodAttributes addmethodattributes; */
-/*     UA_MethodAttributes_init(&addmethodattributes); */
-/*     addmethodattributes.displayName = UA_LOCALIZEDTEXT("", "GetMonitoredItems"); */
-/*     addmethodattributes.executable = true; */
-/*     addmethodattributes.userExecutable = true; */
+    /* Finish method node */
+    UA_Server_addMethodNode_finish(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_GETMONITOREDITEMS),
+                                   UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER), 0, NULL, 0, NULL);
+#endif
 
-
-    // special argument nodeids
-        /* if(newMethodId.namespaceIndex == 0 && */
-        /*    newMethodId.identifierType == UA_NODEIDTYPE_NUMERIC && */
-        /*    newMethodId.identifier.numeric == UA_NS0ID_SERVER_GETMONITOREDITEMS) { */
-        /*     inputArgsNode->nodeId = */
-        /*         UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_GETMONITOREDITEMS_INPUTARGUMENTS); */
-        /* } */
-
-/*     UA_Server_addMethodNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_GETMONITOREDITEMS), */
-/*         UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER), */
-/*         UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT), */
-/*         UA_QUALIFIEDNAME(0, "GetMonitoredItems"), addmethodattributes, */
-/*         GetMonitoredItems, /\* callback of the method node *\/ */
-/*         NULL, /\* handle passed with the callback *\/ */
-/*         1, &inputArguments, 2, outputArguments, NULL); */
-/* #endif */
-
-/*     /\* Finish adding the server object *\/ */
-/*     UA_Server_addNode_finish(server, &adminSession, &serverId, */
-/*                              UA_NODECLASS_OBJECT, &serverTypeId, NULL); */
+    /* Finish adding the server object */
+    UA_Server_addNode_finish(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER),
+                             UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
+                             UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+                             UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERTYPE), NULL);
 
 #else
     /* load the generated namespace externally */
