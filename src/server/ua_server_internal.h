@@ -199,6 +199,10 @@ compatibleArrayDimensions(size_t constraintArrayDimensionsSize,
                           size_t testArrayDimensionsSize,
                           const UA_UInt32 *testArrayDimensions);
 
+UA_Boolean
+compatibleDataType(UA_Server *server, const UA_NodeId *dataType,
+                   const UA_NodeId *constraintDataType);
+
 UA_StatusCode
 compatibleValueRankArrayDimensions(UA_Int32 valueRank, size_t arrayDimensionsSize);
 

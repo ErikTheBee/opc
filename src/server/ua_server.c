@@ -984,10 +984,10 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
                                          auditingDS);
 
     addObjectNode(server, "VendorServerInfo", UA_NS0ID_SERVER_VENDORSERVERINFO, UA_NS0ID_SERVER,
-                  UA_NS0ID_HASCOMPONENT, UA_NS0ID_VENDORSERVERINFOTYPE);
+                  UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEOBJECTTYPE);
 
     addObjectNode(server, "ServerRedundancy", UA_NS0ID_SERVER_SERVERREDUNDANCY, UA_NS0ID_SERVER,
-                  UA_NS0ID_HASCOMPONENT, UA_NS0ID_SERVERREDUNDANCYTYPE);
+                  UA_NS0ID_HASCOMPONENT, UA_NS0ID_BASEOBJECTTYPE);
 
     UA_Int32 rS = 0; /* TODO: use enum type */
     UA_Variant_setScalar(&var, &rS, &UA_TYPES[UA_TYPES_INT32]);

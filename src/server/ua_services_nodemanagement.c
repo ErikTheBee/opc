@@ -98,22 +98,20 @@ typeCheckVariableNode(UA_Server *server, UA_Session *session, const UA_VariableN
         return UA_STATUSCODE_BADTYPEDEFINITIONINVALID;
 
     /* Check the datatype against the vt */
-    UA_StatusCode retval = UA_STATUSCODE_GOOD;
-    const UA_NodeId subtypeId = UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE);
-    if(!isNodeInTree(server->nodestore, &node->dataType, &vt->dataType, &subtypeId, 1))
+    if(!compatibleDataType(server, &node->dataType, &vt->dataType))
         return UA_STATUSCODE_BADTYPEMISMATCH;
 
     /* We need the value for some checks. Might come from a datasource. */
     UA_DataValue value;
     UA_DataValue_init(&value);
-    retval = readValueAttribute(server, node, &value);
+    UA_StatusCode retval = readValueAttribute(server, node, &value);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
     /* Get the array dimensions */
     size_t arrayDims = node->arrayDimensionsSize;
     if(arrayDims == 0 && value.hasValue && value.value.type &&
-       !UA_Variant_isScalar(&value.value) && node->valueRank == 1) {
+       !UA_Variant_isScalar(&value.value)) {
         arrayDims = 1; /* No array dimensions on an array implies one dimension */
     }
 
@@ -132,6 +130,13 @@ typeCheckVariableNode(UA_Server *server, UA_Session *session, const UA_VariableN
                                        vt->arrayDimensionsSize, vt->arrayDimensions);
     if(retval != UA_STATUSCODE_GOOD)
         goto cleanup;
+
+    /* Set a sane valueRank (the most permissive) */
+    UA_Int32 valueRank = node->valueRank;
+    if(valueRank == 0 && value.hasValue && !UA_Variant_isScalar(&value.value)) {
+        valueRank = -2;
+        UA_Server_writeValueRank(server, node->nodeId, valueRank);
+    }
 
     /* This internally converts the value to a valid type if possible */
     if(value.hasValue)
@@ -576,6 +581,18 @@ Service_AddNode_finish(UA_Server *server, UA_Session *session,
         typeDefinition = parentNodeId;
     }
 
+    /* Replace empty typeDefinition with the most permissive default */
+    const UA_NodeId baseDataVariableType = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE);
+    const UA_NodeId baseObjectType = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEOBJECTTYPE);
+    if((node->nodeClass == UA_NODECLASS_VARIABLE ||
+        node->nodeClass == UA_NODECLASS_OBJECT) &&
+       UA_NodeId_isNull(typeDefinition)) {
+        if(node->nodeClass == UA_NODECLASS_VARIABLE)
+            typeDefinition = &baseDataVariableType;
+        else
+            typeDefinition = &baseObjectType;
+    }
+
     /* Check parent reference. Objects may have no parent. */
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
     if(node->nodeClass != UA_NODECLASS_OBJECT || !UA_NodeId_isNull(parentNodeId) ||
@@ -596,7 +613,8 @@ Service_AddNode_finish(UA_Server *server, UA_Session *session,
                                        typeDefinition);
         if(retval != UA_STATUSCODE_GOOD) {
             UA_LOG_INFO_SESSION(server->config.logger, session,
-                                "AddNodes: Type checking failed");
+                                "AddNodes: Type checking failed with error code %s",
+                                UA_StatusCode_name(retval));
             goto cleanup;
         }
     }
