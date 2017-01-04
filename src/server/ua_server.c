@@ -349,20 +349,20 @@ addDataTypeNode(UA_Server *server, char* name, UA_UInt32 datatypeid,
     attr.displayName = UA_LOCALIZEDTEXT("en_US", name);
     attr.isAbstract = isAbstract;
     UA_Server_addDataTypeNode(server, UA_NODEID_NUMERIC(0, datatypeid),
-                              UA_QUALIFIEDNAME(0, name), attr,
-                              UA_NODEID_NUMERIC(0, typeid), NULL, NULL);
+                              UA_NODEID_NUMERIC(0, typeid), UA_QUALIFIEDNAME(0, name),
+                              attr, NULL, NULL);
 }
 
 static void
 addObjectTypeNode(UA_Server *server, char* name, UA_UInt32 objecttypeid,
-                  UA_Boolean isAbstract, UA_UInt32 typeid) {
+                  UA_Boolean isAbstract, UA_UInt32 parentid) {
     UA_ObjectTypeAttributes attr;
     UA_ObjectTypeAttributes_init(&attr);
     attr.displayName = UA_LOCALIZEDTEXT("en_US", name);
     attr.isAbstract = isAbstract;
     UA_Server_addObjectTypeNode(server, UA_NODEID_NUMERIC(0, objecttypeid),
-                                UA_QUALIFIEDNAME(0, name), attr,
-                                UA_NODEID_NUMERIC(0, typeid), NULL, NULL);
+                                UA_NODEID_NUMERIC(0, parentid), UA_QUALIFIEDNAME(0, name),
+                                attr, NULL, NULL);
 }
 
 static void
@@ -389,7 +389,7 @@ addReferenceTypeNode(UA_Server *server, char* name, char *inverseName, UA_UInt32
     reference_attr.isAbstract = isabstract;
     reference_attr.symmetric = symmetric;
     if(inverseName)
-        reference_attr.inverseName = UA_LOCALIZEDTEXT_ALLOC("en_US", inverseName);
+        reference_attr.inverseName = UA_LOCALIZEDTEXT("en_US", inverseName);
     UA_Server_addReferenceTypeNode(server, UA_NODEID_NUMERIC(0, referencetypeid),
                                    UA_NODEID_NUMERIC(0, parentid), UA_QUALIFIEDNAME(0, name),
                                    reference_attr, NULL, NULL);
@@ -398,7 +398,7 @@ addReferenceTypeNode(UA_Server *server, char* name, char *inverseName, UA_UInt32
 static void
 addVariableTypeNode(UA_Server *server, char* name, UA_UInt32 variabletypeid,
                     UA_Boolean isAbstract, UA_Int32 valueRank, UA_UInt32 dataType,
-                    UA_Variant *value, UA_UInt32 typeid) {
+                    UA_Variant *value, UA_UInt32 parentid) {
     UA_VariableTypeAttributes attr;
     UA_VariableTypeAttributes_init(&attr);
     attr.displayName = UA_LOCALIZEDTEXT("en_US", name);
@@ -408,8 +408,8 @@ addVariableTypeNode(UA_Server *server, char* name, UA_UInt32 variabletypeid,
     if(value)
         attr.value = *value;
     UA_Server_addVariableTypeNode(server, UA_NODEID_NUMERIC(0, variabletypeid),
-                                  UA_QUALIFIEDNAME(0, name), attr,
-                                  UA_NODEID_NUMERIC(0, typeid), NULL, NULL);
+                                  UA_NODEID_NUMERIC(0, parentid), UA_QUALIFIEDNAME(0, name),
+                                  attr, NULL, NULL);
 }
 
 static void
@@ -559,7 +559,7 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     references_attr.displayName = UA_LOCALIZEDTEXT("en_US", "References");
     references_attr.isAbstract = true;
     references_attr.symmetric = true;
-    references_attr.inverseName = UA_LOCALIZEDTEXT_ALLOC("en_US", "References");
+    references_attr.inverseName = UA_LOCALIZEDTEXT("en_US", "References");
     UA_Server_addReferenceTypeNode_begin(server, UA_NODEID_NUMERIC(0, UA_NS0ID_REFERENCES),
                                          UA_QUALIFIEDNAME(0, "References"), references_attr, NULL);
 
@@ -568,7 +568,7 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
     hassubtype_attr.displayName = UA_LOCALIZEDTEXT("en_US", "HasSubtype");
     hassubtype_attr.isAbstract = false;
     hassubtype_attr.symmetric = false;
-    hassubtype_attr.inverseName = UA_LOCALIZEDTEXT_ALLOC("en_US", "HasSupertype");
+    hassubtype_attr.inverseName = UA_LOCALIZEDTEXT("en_US", "HasSupertype");
     UA_Server_addReferenceTypeNode_begin(server, UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE),
                                          UA_QUALIFIEDNAME(0, "HasSubtype"), hassubtype_attr, NULL);
 
@@ -820,7 +820,7 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
 #define MAX_PROFILEARRAY 4 /* increase when necesssary... */
     UA_String profileArray[MAX_PROFILEARRAY];
     UA_UInt16 profileArraySize = 0;
-#define ADDPROFILEARRAY(x) profileArray[profileArraySize++] = UA_STRING_ALLOC(x)
+#define ADDPROFILEARRAY(x) profileArray[profileArraySize++] = UA_STRING(x)
     ADDPROFILEARRAY("http://opcfoundation.org/UA-Profile/Server/NanoEmbeddedDevice");
 #ifdef UA_ENABLE_SERVICESET_NODEMANAGEMENT
     ADDPROFILEARRAY("http://opcfoundation.org/UA-Profile/Server/NodeManagement");

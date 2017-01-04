@@ -129,7 +129,7 @@ typeCheckVariableNode(UA_Server *server, UA_Session *session, const UA_VariableN
 
     /* Check array dimensions against the vt */
     retval = compatibleArrayDimensions(node->arrayDimensionsSize, node->arrayDimensions,
-                                        vt->arrayDimensionsSize, vt->arrayDimensions);
+                                       vt->arrayDimensionsSize, vt->arrayDimensions);
     if(retval != UA_STATUSCODE_GOOD)
         goto cleanup;
 
@@ -573,7 +573,7 @@ Service_AddNode_finish(UA_Server *server, UA_Session *session,
        node->nodeClass == UA_NODECLASS_REFERENCETYPE ||
        node->nodeClass == UA_NODECLASS_DATATYPE) {
         referenceTypeId = &hasSubtype;
-        typeDefinition = &UA_NODEID_NULL;
+        typeDefinition = parentNodeId;
     }
 
     /* Check parent reference. Objects may have no parent. */
@@ -590,10 +590,13 @@ Service_AddNode_finish(UA_Server *server, UA_Session *session,
     }
     
     /* Type check node */
-    if(node->nodeClass == UA_NODECLASS_VARIABLE || node->nodeClass == UA_NODECLASS_VARIABLETYPE) {
-        retval = typeCheckVariableNode(server, session, (const UA_VariableNode*)node, typeDefinition);
+    if(node->nodeClass == UA_NODECLASS_VARIABLE ||
+       node->nodeClass == UA_NODECLASS_VARIABLETYPE) {
+        retval = typeCheckVariableNode(server, session, (const UA_VariableNode*)node,
+                                       typeDefinition);
         if(retval != UA_STATUSCODE_GOOD) {
-            UA_LOG_INFO_SESSION(server->config.logger, session, "AddNodes: Type checking failed");
+            UA_LOG_INFO_SESSION(server->config.logger, session,
+                                "AddNodes: Type checking failed");
             goto cleanup;
         }
     }
@@ -720,6 +723,9 @@ __UA_Server_addNode(UA_Server *server, const UA_NodeClass nodeClass,
     item.requestedNewNodeId.nodeId = *requestedNewNodeId;
     item.browseName = *browseName;
     item.nodeClass = nodeClass;
+    item.parentNodeId.nodeId = *parentNodeId;
+    item.referenceTypeId = *referenceTypeId;
+    item.typeDefinition.nodeId = *typeDefinition;
     item.nodeAttributes = (UA_ExtensionObject) {
         .encoding = UA_EXTENSIONOBJECT_DECODED_NODELETE,
         .content.decoded = {attributesType, (void*)(uintptr_t)attributes}};

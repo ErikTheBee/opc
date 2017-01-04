@@ -205,12 +205,6 @@ typeCheckValue(UA_Server *server, const UA_NodeId *targetDataTypeId,
     if(!value->type)
         goto check_array;
 
-    /* See if the types match. The nodeid on the wire may be != the nodeid in
-     * the node for opaque types, enums and bytestrings. value contains the
-     * correct type definition after the following paragraph */
-    if(UA_NodeId_equal(&value->type->typeId, targetDataTypeId))
-        goto check_array;
-
     /* Some structured type may be omitted from the type hierarchy. Ensure that
      * every type is valid for BaseDataType */
     const UA_NodeId basedatatype = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE);
@@ -219,22 +213,23 @@ typeCheckValue(UA_Server *server, const UA_NodeId *targetDataTypeId,
 
     /* Has the value a subtype of the required type? */
     const UA_NodeId subtypeId = UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE);
-    if(isNodeInTree(server->nodestore, &value->type->typeId, targetDataTypeId, &subtypeId, 1))
-        goto check_array;
+    if(!isNodeInTree(server->nodestore, &value->type->typeId, targetDataTypeId, &subtypeId, 1)) {
+        /* Convert to a matching value if possible */
+        if(!editableValue)
+            return UA_STATUSCODE_BADTYPEMISMATCH;
+        value = convertToMatchingValue(server, value, targetDataTypeId, editableValue);
+        if(!value)
+            return UA_STATUSCODE_BADTYPEMISMATCH;
+    }
 
-    /* Try to convert to a matching value if this is wanted */
-    if(!editableValue)
-        return UA_STATUSCODE_BADTYPEMISMATCH;
-    value = convertToMatchingValue(server, value, targetDataTypeId, editableValue);
-    if(!value)
-        return UA_STATUSCODE_BADTYPEMISMATCH;
-
- check_array:
-    if(range) /* array dimensions are checked later when writing the range */
+    /* Array dimensions are checked later when writing the range */
+    if(range)
         return UA_STATUSCODE_GOOD;
 
+ check_array:
+
     /* See if the array dimensions match. When arrayDimensions are defined, they
-     * already hold the valuerank. */
+     * already match the valuerank. */
     if(targetArrayDimensionsSize > 0)
         return compatibleArrayDimensions(targetArrayDimensionsSize, targetArrayDimensions,
                                          value->arrayDimensionsSize, value->arrayDimensions);
