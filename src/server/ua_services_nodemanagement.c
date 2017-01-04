@@ -824,7 +824,8 @@ UA_Server_addMethodNode_begin(UA_Server *server, const UA_NodeId requestedNewNod
 }
 
 UA_StatusCode
-UA_Server_addMethodNode_finish(UA_Server *server, const UA_NodeId nodeId, const UA_NodeId parentNodeId, 
+UA_Server_addMethodNode_finish(UA_Server *server, const UA_NodeId nodeId,
+                               const UA_NodeId parentNodeId, const UA_NodeId referenceTypeId,
                                size_t inputArgumentsSize, const UA_Argument* inputArguments,
                                size_t outputArgumentsSize, const UA_Argument* outputArguments) {
     UA_NodeId inputArgsId = UA_NODEID_NULL;
@@ -897,9 +898,8 @@ UA_Server_addMethodNode_finish(UA_Server *server, const UA_NodeId nodeId, const 
     }
 
     /* Call finish to add the parent reference */
-    const UA_NodeId hascomponent = UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT);
     retval |= Service_AddNode_finish(server, &adminSession, &nodeId, &parentNodeId,
-                                     &hascomponent, &UA_NODEID_NULL, NULL);
+                                     &referenceTypeId, &UA_NODEID_NULL, NULL);
 
  finish:
     if(retval != UA_STATUSCODE_GOOD) {
@@ -913,8 +913,9 @@ UA_Server_addMethodNode_finish(UA_Server *server, const UA_NodeId nodeId, const 
 
 UA_StatusCode
 UA_Server_addMethodNode(UA_Server *server, const UA_NodeId requestedNewNodeId,
-                        const UA_NodeId parentNodeId, const UA_QualifiedName browseName,
-                        const UA_MethodAttributes attr, UA_MethodCallback method, void *handle,
+                        const UA_NodeId parentNodeId, const UA_NodeId referenceTypeId,
+                        const UA_QualifiedName browseName, const UA_MethodAttributes attr,
+                        UA_MethodCallback method, void *handle,
                         size_t inputArgumentsSize, const UA_Argument* inputArguments, 
                         size_t outputArgumentsSize, const UA_Argument* outputArguments,
                         UA_NodeId *outNewNodeId) {
@@ -931,7 +932,7 @@ UA_Server_addMethodNode(UA_Server *server, const UA_NodeId requestedNewNodeId,
         newId = outNewNodeId;
 
     /* Call finish */
-    return UA_Server_addMethodNode_finish(server, *newId, parentNodeId,
+    return UA_Server_addMethodNode_finish(server, *newId, parentNodeId, referenceTypeId,
                                           inputArgumentsSize, inputArguments,
                                           outputArgumentsSize, outputArguments);
 }

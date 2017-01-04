@@ -1039,7 +1039,9 @@ UA_Server * UA_Server_new(const UA_ServerConfig config) {
 
     /* Finish method node */
     UA_Server_addMethodNode_finish(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_GETMONITOREDITEMS),
-                                   UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER), 0, NULL, 0, NULL);
+                                   UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER),
+                                   UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                                   0, NULL, 0, NULL);
 #endif
 
     /* Finish adding the server object */

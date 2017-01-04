@@ -55,11 +55,12 @@ makeTestSequence(void) {
     vattr.displayName = UA_LOCALIZEDTEXT("en_US","temperature");
     UA_NodeId temperatureNodeId = UA_NODEID_STRING(1, "cpu.temperature");
     retval = UA_Server_addVariableNode_begin(server, temperatureNodeId,
-                                             UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
-                                             UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
                                              UA_QUALIFIEDNAME(1, "cpu temperature"), vattr, NULL);
     retval |= UA_Server_setVariableNode_dataSource(server, temperatureNodeId, temperatureDataSource);
-    retval |= UA_Server_addVariableNode_finish(server, temperatureNodeId, UA_NODEID_NULL, NULL);
+    retval |= UA_Server_addNode_finish(server, temperatureNodeId,
+                                       UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
+                                       UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+                                       UA_NODEID_NULL, NULL);
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
 
     /* VariableNode with array */

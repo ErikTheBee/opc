@@ -69,16 +69,16 @@ int main(int argc, char** argv) {
     attr.displayName = UA_LOCALIZEDTEXT("en_US","the answer");
 
     /* Create the variable node but omit the type checking */
-    UA_Server_addVariableNode_begin(server, myIntegerNodeId,
-                                    UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
-                                    UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-                                    myIntegerName, attr, NULL);
+    UA_Server_addVariableNode_begin(server, myIntegerNodeId, myIntegerName, attr, NULL);
 
     /* Set the data source */
     UA_Server_setVariableNode_dataSource(server, myIntegerNodeId, dateDataSource);
 
     /* Finish instantiation with defaults */
-    UA_Server_addVariableNode_finish(server, myIntegerNodeId, UA_NODEID_NULL, NULL);
+    UA_Server_addNode_finish(server, myIntegerNodeId,
+                             UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
+                             UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+                             UA_NODEID_NULL, NULL);
 
     UA_StatusCode retval = UA_Server_run(server, &running);
     UA_Server_delete(server);

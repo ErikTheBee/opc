@@ -1063,6 +1063,7 @@ UA_Server_addDataTypeNode_begin(UA_Server *server,
 UA_StatusCode UA_EXPORT
 UA_Server_addMethodNode(UA_Server *server, const UA_NodeId requestedNewNodeId,
                         const UA_NodeId parentNodeId,
+                        const UA_NodeId referenceTypeId,
                         const UA_QualifiedName browseName,
                         const UA_MethodAttributes attr,
                         UA_MethodCallback method, void *handle,
@@ -1081,6 +1082,7 @@ UA_Server_addMethodNode_begin(UA_Server *server, const UA_NodeId requestedNewNod
 UA_StatusCode UA_EXPORT
 UA_Server_addMethodNode_finish(UA_Server *server, const UA_NodeId nodeId,
                                const UA_NodeId parentNodeId, 
+                               const UA_NodeId referenceTypeId,
                                size_t inputArgumentsSize,
                                const UA_Argument* inputArguments,
                                size_t outputArgumentsSize,
