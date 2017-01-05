@@ -849,22 +849,11 @@ __UA_Server_addNode_begin(UA_Server *server, const UA_NodeClass nodeClass,
 /* The inline function UA_Server_addNode_finish might be more convenient to
  * pass NodeIds in-situ (e.g. UA_NODEID_NUMERIC(0, 5)) */
 UA_StatusCode UA_EXPORT
-__UA_Server_addNode_finish(UA_Server *server, const UA_NodeId *nodeId,
-                         const UA_NodeId *parentNodeId,
-                         const UA_NodeId *referenceTypeId,
-                         const UA_NodeId *typeDefinition,
-                         UA_InstantiationCallback *instantiationCallback);
-
-/* Generic function to finish the instantiation of all node types */
-static UA_INLINE UA_StatusCode
 UA_Server_addNode_finish(UA_Server *server, const UA_NodeId nodeId,
                          const UA_NodeId parentNodeId,
                          const UA_NodeId referenceTypeId,
                          const UA_NodeId typeDefinition,
-                         UA_InstantiationCallback *instantiationCallback) {
-    return __UA_Server_addNode_finish(server, &nodeId, &parentNodeId, &referenceTypeId,
-                                      &typeDefinition, instantiationCallback);
-}
+                         UA_InstantiationCallback *instantiationCallback);
 
 static UA_INLINE UA_StatusCode
 UA_Server_addVariableNode(UA_Server *server, const UA_NodeId requestedNewNodeId,
