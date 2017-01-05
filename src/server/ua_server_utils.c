@@ -218,8 +218,11 @@ getVariableNodeType(UA_Server *server, const UA_VariableNode *node) {
     getNodeType(server, (const UA_Node*)node, &vtId);
 
     const UA_Node *vt = UA_NodeStore_get(server->nodestore, &vtId);
-    if(!vt && vt->nodeClass != UA_NODECLASS_VARIABLETYPE)
+    if(!vt || vt->nodeClass != UA_NODECLASS_VARIABLETYPE) {
         vt = NULL;
+        UA_LOG_DEBUG(server->config.logger, UA_LOGCATEGORY_SERVER,
+                     "No VariableType for the node found");
+    }
     return (const UA_VariableTypeNode*)vt;
 }
 
@@ -229,8 +232,11 @@ getObjectNodeType(UA_Server *server, const UA_ObjectNode *node) {
     getNodeType(server, (const UA_Node*)node, &otId);
 
     const UA_Node *ot = UA_NodeStore_get(server->nodestore, &otId);
-    if(!ot && ot->nodeClass != UA_NODECLASS_OBJECTTYPE)
+    if(!ot || ot->nodeClass != UA_NODECLASS_OBJECTTYPE) {
         ot = NULL;
+        UA_LOG_DEBUG(server->config.logger, UA_LOGCATEGORY_SERVER,
+                     "No ObjectType for the node found");
+    }
     return (const UA_ObjectTypeNode*)ot;
 }
 
@@ -255,16 +261,15 @@ UA_StatusCode
 UA_Server_editNode(UA_Server *server, UA_Session *session,
                    const UA_NodeId *nodeId, UA_EditNodeCallback callback,
                    const void *data) {
+#ifndef UA_ENABLE_MULTITHREADING
+    const UA_Node *node = UA_NodeStore_get(server->nodestore, nodeId);
+    if(!node)
+        return UA_STATUSCODE_BADNODEIDUNKNOWN;
+    UA_Node *editNode = (UA_Node*)(uintptr_t)node; // dirty cast
+    return callback(server, session, editNode, data);
+#else
     UA_StatusCode retval;
     do {
-#ifndef UA_ENABLE_MULTITHREADING
-        const UA_Node *node = UA_NodeStore_get(server->nodestore, nodeId);
-        if(!node)
-            return UA_STATUSCODE_BADNODEIDUNKNOWN;
-        UA_Node *editNode = (UA_Node*)(uintptr_t)node; // dirty cast
-        retval = callback(server, session, editNode, data);
-        return retval;
-#else
         UA_Node *copy = UA_NodeStore_getCopy(server->nodestore, nodeId);
         if(!copy)
             return UA_STATUSCODE_BADOUTOFMEMORY;
@@ -274,7 +279,7 @@ UA_Server_editNode(UA_Server *server, UA_Session *session,
             return retval;
         }
         retval = UA_NodeStore_replace(server->nodestore, copy);
-#endif
     } while(retval != UA_STATUSCODE_GOOD);
     return UA_STATUSCODE_GOOD;
+#endif
 }

@@ -97,16 +97,41 @@ typeCheckVariableNode(UA_Server *server, UA_Session *session, const UA_VariableN
     if(node->nodeClass == UA_NODECLASS_VARIABLE && vt->isAbstract)
         return UA_STATUSCODE_BADTYPEDEFINITIONINVALID;
 
-    /* Check the datatype against the vt */
-    if(!compatibleDataType(server, &node->dataType, &vt->dataType))
-        return UA_STATUSCODE_BADTYPEMISMATCH;
-
     /* We need the value for some checks. Might come from a datasource. */
     UA_DataValue value;
     UA_DataValue_init(&value);
     UA_StatusCode retval = readValueAttribute(server, node, &value);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
+
+    /* Workaround: set a sane valueRank (the most permissive -2) */
+    UA_Int32 valueRank = node->valueRank;
+    if(valueRank == 0 && value.hasValue && value.value.type &&
+       UA_Variant_isScalar(&value.value)) {
+        UA_LOG_INFO_SESSION(server->config.logger, session,
+                            "AddNodes: Set ValueRank attribute to a default value");
+        valueRank = -2;
+        retval = UA_Server_writeValueRank(server, node->nodeId, valueRank);
+        if(retval != UA_STATUSCODE_GOOD)
+            goto cleanup;
+    }
+
+    /* Workaround: Replace with datatype of the vt if not set */
+    const UA_NodeId *dataType = &node->dataType;
+    if(UA_NodeId_isNull(dataType)) {
+        UA_LOG_INFO_SESSION(server->config.logger, session,
+                            "AddNodes: Set the DataType attribute to a default value");
+        dataType = &vt->dataType;
+        retval = UA_Server_writeDataType(server, node->nodeId, vt->dataType);
+        if(retval != UA_STATUSCODE_GOOD)
+            goto cleanup;
+    }
+
+    /* Check the datatype against the vt */
+    if(!compatibleDataType(server, dataType, &vt->dataType)) {
+        retval = UA_STATUSCODE_BADTYPEMISMATCH;
+        goto cleanup;
+    }
 
     /* Get the array dimensions */
     size_t arrayDims = node->arrayDimensionsSize;
@@ -116,12 +141,12 @@ typeCheckVariableNode(UA_Server *server, UA_Session *session, const UA_VariableN
     }
 
     /* Check valueRank against array dimensions */
-    retval = compatibleValueRankArrayDimensions(node->valueRank, arrayDims);
+    retval = compatibleValueRankArrayDimensions(valueRank, arrayDims);
     if(retval != UA_STATUSCODE_GOOD)
         goto cleanup;
 
     /* Check valueRank against the vt */
-    retval = compatibleValueRanks(node->valueRank, vt->valueRank);
+    retval = compatibleValueRanks(valueRank, vt->valueRank);
     if(retval != UA_STATUSCODE_GOOD)
         goto cleanup;
 
@@ -131,18 +156,16 @@ typeCheckVariableNode(UA_Server *server, UA_Session *session, const UA_VariableN
     if(retval != UA_STATUSCODE_GOOD)
         goto cleanup;
 
-    /* Set a sane valueRank (the most permissive) */
-    UA_Int32 valueRank = node->valueRank;
-    if(valueRank == 0 && value.hasValue && !UA_Variant_isScalar(&value.value)) {
-        valueRank = -2;
-        UA_Server_writeValueRank(server, node->nodeId, valueRank);
-    }
-
-    /* This internally converts the value to a valid type if possible */
-    if(value.hasValue)
-        retval = typeCheckValue(server, &node->dataType, node->valueRank,
+    /* Typecheck the value */
+    if(value.hasValue) {
+        retval = typeCheckValue(server, dataType, valueRank,
                                 node->arrayDimensionsSize, node->arrayDimensions,
                                 &value.value, NULL, NULL);
+        /* The type-check failed. Write the same value again. The write-service
+         * tries to convert to the correct type... */
+        if(retval != UA_STATUSCODE_GOOD)
+            retval = UA_Server_writeValue(server, node->nodeId, value.value);
+    }
 
  cleanup:
     UA_DataValue_deleteMembers(&value); /* Free the value before any return clause */
@@ -581,12 +604,14 @@ Service_AddNode_finish(UA_Server *server, UA_Session *session,
         typeDefinition = parentNodeId;
     }
 
-    /* Replace empty typeDefinition with the most permissive default */
+    /* Workaround: Replace empty typeDefinition with the most permissive default */
     const UA_NodeId baseDataVariableType = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE);
     const UA_NodeId baseObjectType = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEOBJECTTYPE);
     if((node->nodeClass == UA_NODECLASS_VARIABLE ||
         node->nodeClass == UA_NODECLASS_OBJECT) &&
        UA_NodeId_isNull(typeDefinition)) {
+        UA_LOG_INFO_SESSION(server->config.logger, session,
+                            "AddNodes: Set Variable/Object to a default value");
         if(node->nodeClass == UA_NODECLASS_VARIABLE)
             typeDefinition = &baseDataVariableType;
         else
@@ -604,6 +629,17 @@ Service_AddNode_finish(UA_Server *server, UA_Session *session,
                                 "AddNodes: The parent reference is invalid");
             goto cleanup;
         }
+    }
+
+    /* Instantiate node. We need the variable type for type checking (e.g. when
+     * writing into attributes) */
+    retval = instantiateNode(server, session, nodeId, node->nodeClass,
+                             typeDefinition, instantiationCallback);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_LOG_INFO_SESSION(server->config.logger, session,
+                            "AddNodes: Node instantiation failed "
+                            "with code %s", UA_StatusCode_name(retval));
+        goto cleanup;
     }
     
     /* Type check node */
@@ -633,16 +669,6 @@ Service_AddNode_finish(UA_Server *server, UA_Session *session,
                                 "AddNodes: Adding reference to parent failed");
             goto cleanup;
         }
-    }
-
-    /* Instantiate node */
-    retval = instantiateNode(server, session, nodeId, node->nodeClass,
-                             typeDefinition, instantiationCallback);
-    if(retval != UA_STATUSCODE_GOOD) {
-        UA_LOG_INFO_SESSION(server->config.logger, session,
-                            "AddNodes: Node instantiation failed "
-                            "with code %s", UA_StatusCode_name(retval));
-        goto cleanup;
     }
 
     return UA_STATUSCODE_GOOD;
