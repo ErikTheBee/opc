@@ -329,17 +329,17 @@ list(APPEND lib_sources ${PROJECT_BINARY_DIR}/src_generated/ua_statuscode_descri
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/src_generated/ua_namespaceinit_generated.c
                           ${PROJECT_BINARY_DIR}/src_generated/ua_namespaceinit_generated.h
                    PRE_BUILD
-                   COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/generate_open62541CCode.py
-                           -s description -b ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/NodeID_Blacklist.txt
+                   COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/generate_open62541CCode.py
+                           -s description -b ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/NodeID_Blacklist.txt
                            ${PROJECT_SOURCE_DIR}/tools/schema/namespace0/${GENERATE_NAMESPACE0_FILE}
                            ${PROJECT_BINARY_DIR}/src_generated/ua_namespaceinit_generated
                    DEPENDS ${PROJECT_SOURCE_DIR}/tools/schema/namespace0/${GENERATE_NAMESPACE0_FILE}
-                           ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/generate_open62541CCode.py
-                           ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/open62541_MacroHelper.py
-                           ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/ua_builtin_types.py
-                           ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/ua_constants.py
-                           ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/ua_namespace.py
-                           ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/ua_node_types.py)
+                           ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/generate_open62541CCode.py
+                           ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/open62541_MacroHelper.py
+                           ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/ua_builtin_types.py
+                           ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/ua_constants.py
+                           ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/ua_namespace.py
+                           ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/ua_node_types.py)
 
 # single-file release
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/open62541.h
@@ -359,18 +359,18 @@ add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/open62541.c
 # example information model from nodeset xml
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/src_generated/nodeset.h ${PROJECT_BINARY_DIR}/src_generated/nodeset.c
                   PRE_BUILD
-                  COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/generate_open62541CCode.py
-                                                -i ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/NodeID_Blacklist_FullNS0.txt
+                  COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/generate_open62541CCode.py
+                                                -i ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/NodeID_Blacklist_FullNS0.txt
                                                 ${PROJECT_SOURCE_DIR}/tools/schema/namespace0/Opc.Ua.NodeSet2.Minimal.xml
                                                 ${PROJECT_SOURCE_DIR}/examples/server_nodeset.xml
                                                 ${PROJECT_BINARY_DIR}/src_generated/nodeset
-                  DEPENDS ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/generate_open62541CCode.py
-                          ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/open62541_MacroHelper.py
-                          ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/ua_builtin_types.py
-                          ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/ua_constants.py
-                          ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/ua_namespace.py
-                          ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/ua_node_types.py
-                          ${PROJECT_SOURCE_DIR}/tools/pyUANamespace/NodeID_Blacklist_FullNS0.txt
+                  DEPENDS ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/generate_open62541CCode.py
+                          ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/open62541_MacroHelper.py
+                          ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/ua_builtin_types.py
+                          ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/ua_constants.py
+                          ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/ua_namespace.py
+                          ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/ua_node_types.py
+                          ${PROJECT_SOURCE_DIR}/tools/nodeset_compiler/NodeID_Blacklist_FullNS0.txt
                           ${PROJECT_SOURCE_DIR}/examples/server_nodeset.xml)
 
 #####################
