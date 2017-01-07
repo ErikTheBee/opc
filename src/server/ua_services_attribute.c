@@ -71,7 +71,8 @@ UA_Boolean
 compatibleDataType(UA_Server *server, const UA_NodeId *dataType,
                    const UA_NodeId *constraintDataType) {
     const UA_NodeId subtypeId = UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE);
-    return UA_NodeId_equal(constraintDataType, &UA_TYPES[UA_TYPES_VARIANT].typeId) ||
+    return UA_NodeId_isNull(constraintDataType) ||
+        UA_NodeId_equal(constraintDataType, &UA_TYPES[UA_TYPES_VARIANT].typeId) ||
         isNodeInTree(server->nodestore, dataType, constraintDataType, &subtypeId, 1);
 }
 
@@ -211,13 +212,7 @@ typeCheckValue(UA_Server *server, const UA_NodeId *targetDataTypeId,
                const UA_NumericRange *range, UA_Variant *editableValue) {
     /* Empty variant is only allowed for BaseDataType */
     if(!value->type)
-        goto check_array;
-
-    /* Some structured type may be omitted from the type hierarchy. Ensure that
-     * every type is valid for BaseDataType */
-    const UA_NodeId basedatatype = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE);
-    if(UA_NodeId_equal(targetDataTypeId, &basedatatype))
-        goto check_array;
+        return UA_STATUSCODE_GOOD;
 
     /* Has the value a subtype of the required type? BaseDataType (Variant) can
      * be anything... */
@@ -233,8 +228,6 @@ typeCheckValue(UA_Server *server, const UA_NodeId *targetDataTypeId,
     /* Array dimensions are checked later when writing the range */
     if(range)
         return UA_STATUSCODE_GOOD;
-
- check_array:
 
     /* See if the array dimensions match. When arrayDimensions are defined, they
      * already match the valuerank. */

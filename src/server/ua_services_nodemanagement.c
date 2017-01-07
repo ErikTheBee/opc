@@ -109,7 +109,7 @@ typeCheckVariableNode(UA_Server *server, UA_Session *session, const UA_VariableN
     if(valueRank == 0 && value.hasValue && value.value.type &&
        UA_Variant_isScalar(&value.value)) {
         UA_LOG_INFO_SESSION(server->config.logger, session,
-                            "AddNodes: Set ValueRank attribute to a default value");
+                            "AddNodes: Use a default ValueRank of -2");
         valueRank = -2;
         retval = UA_Server_writeValueRank(server, node->nodeId, valueRank);
         if(retval != UA_STATUSCODE_GOOD)
@@ -120,7 +120,7 @@ typeCheckVariableNode(UA_Server *server, UA_Session *session, const UA_VariableN
     const UA_NodeId *dataType = &node->dataType;
     if(UA_NodeId_isNull(dataType)) {
         UA_LOG_INFO_SESSION(server->config.logger, session,
-                            "AddNodes: Set the DataType attribute to a default value");
+                            "AddNodes: Use a default DataType (from the TypeDefinition)");
         dataType = &vt->dataType;
         retval = UA_Server_writeDataType(server, node->nodeId, vt->dataType);
         if(retval != UA_STATUSCODE_GOOD)
