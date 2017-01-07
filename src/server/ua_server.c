@@ -109,22 +109,14 @@ UA_Server_addExternalNamespace(UA_Server *server, const UA_String *url,
     if(!nodeStore)
         return UA_STATUSCODE_BADARGUMENTSMISSING;
 
-    char urlString[256];
-    if(url->length >= 256)
-        return UA_STATUSCODE_BADINTERNALERROR;
-    memcpy(urlString, url->data, url->length);
-    urlString[url->length] = 0;
-
     size_t size = server->externalNamespacesSize;
     server->externalNamespaces =
         UA_realloc(server->externalNamespaces, sizeof(UA_ExternalNamespace) * (size + 1));
     server->externalNamespaces[size].externalNodeStore = *nodeStore;
-    server->externalNamespaces[size].index = (UA_UInt16)server->namespacesSize;
-    *assignedNamespaceIndex = (UA_UInt16)server->namespacesSize;
+    server->externalNamespaces[size].index = addNamespace(server, *url);
+    *assignedNamespaceIndex = server->externalNamespaces[size].index;
     UA_String_copy(url, &server->externalNamespaces[size].url);
     ++server->externalNamespacesSize;
-    UA_Server_addNamespace(server, urlString);
-
     return UA_STATUSCODE_GOOD;
 }
 #endif /* UA_ENABLE_EXTERNAL_NAMESPACES*/

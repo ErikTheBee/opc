@@ -67,8 +67,6 @@ returnRelevantNodeExternal(UA_ExternalNodeStore *ens, const UA_BrowseDescription
         UA_LocalizedText_copy((UA_LocalizedText*)readNodesResults[3].value.data, &(node->description));
     if(readNodesResults[4].status == UA_STATUSCODE_GOOD)
         UA_UInt32_copy((UA_UInt32*)readNodesResults[4].value.data, &(node->writeMask));
-    if(readNodesResults[5].status == UA_STATUSCODE_GOOD)
-        UA_UInt32_copy((UA_UInt32*)readNodesResults[5].value.data, &(node->userWriteMask));
     UA_Array_delete(readValueIds,6, &UA_TYPES[UA_TYPES_READVALUEID]);
     UA_Array_delete(indices,6, &UA_TYPES[UA_TYPES_UINT32]);
     UA_Array_delete(readNodesResults,6, &UA_TYPES[UA_TYPES_DATAVALUE]);
