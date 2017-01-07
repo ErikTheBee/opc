@@ -110,48 +110,8 @@ class open62541_MacroHelper():
       code.append("UA_Server_addReference(server, " + self.getCreateNodeIDMacro(sourcenode) + ", " + self.getCreateNodeIDMacro(reference.referenceType()) + ", " + self.getCreateExpandedNodeIDMacro(reference.target()) + ", false);")
     return code
 
-  def finishCreateNodeNoBootstrap(self, node):
+  def getCreateNodeNoBootstrap(self, node, unprintedNodes):
     code = []
-
-    # finishing only required for objects and variables
-    if node.nodeClass() == NODE_CLASS_OBJECT:
-      nodetype = "Object"
-    elif node.nodeClass() == NODE_CLASS_VARIABLE:
-      nodetype = "Variable"
-    else:
-      return code;
-
-    (parentNode, parentRef) = node.getFirstParentNode()
-
-    code.append("{")
-
-    # the nodeids
-    code.append("UA_NodeId nodeId = " + str(self.getCreateNodeIDMacro(node)) + ";")
-    if parentNode:
-      code.append("UA_NodeId parentNodeId = " + str(self.getCreateNodeIDMacro(parentNode)) + ";")
-      code.append("UA_NodeId parentReferenceNodeId = " + str(self.getCreateNodeIDMacro(parentRef.referenceType())) + ";")
-    else:
-      code.append("UA_NodeId parentNodeId = UA_NODEID_NULL;")
-      code.append("UA_NodeId parentReferenceNodeId = UA_NODEID_NULL;")
-
-    # Print the type definition
-    typeDefinition = None
-    for r in node.getReferences():
-      if r.isForward() and r.referenceType().id().ns == 0 and r.referenceType().id().i == 40:
-        typeDefinition = r.target()
-        break
-    if typeDefinition == None:
-      code.append("UA_NodeId typeDefinition = UA_NODEID_NULL;")
-    else:
-      code.append("UA_NodeId typeDefinition = " + str(self.getCreateNodeIDMacro(typeDefinition)) + ";")
-
-    code.append("UA_Server_add%sNode_finish(server, nodeId, parentNodeId, parentReferenceNodeId, typeDefinition, NULL);" % nodetype)
-    code.append("}")
-    return code
-
-  def getCreateNodeNoBootstrap(self, node, parentNode, parentReference, unprintedNodes):
-    code = []
-    code.append("// Node: " + str(node) + ", " + str(node.browseName()))
 
     if node.nodeClass() == NODE_CLASS_OBJECT:
       nodetype = "Object"
@@ -233,11 +193,10 @@ class open62541_MacroHelper():
                 #  code.append("outputArguments[" + str(argumentCnt) + "].arrayDimensions = " + str(outArg.getValueFieldByAlias("ArrayDimensions")) + ";")
                 argumentCnt += 1
 
-    # Print the nodeid
+    # Print the nodeids
     code.append("UA_NodeId nodeId = " + str(self.getCreateNodeIDMacro(node)) + ";")
-    if not nodetype in ["Variable", "Object"]:
-      code.append("UA_NodeId parentNodeId = " + str(self.getCreateNodeIDMacro(parentNode)) + ";")
-      code.append("UA_NodeId parentReferenceNodeId = " + str(self.getCreateNodeIDMacro(parentReference.referenceType())) + ";")
+    #code.append("UA_NodeId parentNodeId = " + str(self.getCreateNodeIDMacro(parentNode)) + ";")
+    #code.append("UA_NodeId parentReferenceNodeId = " + str(self.getCreateNodeIDMacro(parentReference.referenceType())) + ";")
 
     # Print the attributes struct
     code.append("UA_%sAttributes attr;" % nodetype)
@@ -252,25 +211,26 @@ class open62541_MacroHelper():
       code.append("attr.valueRank = %s;"       % str(node.valueRank()))
 
     if nodetype in ["Variable", "VariableType"]:
-      code = code + node.printOpen62541CCode_SubtypeEarly(bootstrapping = False)
       if node.dataType():
         code.append("attr.dataType = %s;" % str(self.getCreateNodeIDMacro(node.dataType().target())))
-    elif nodetype == "Method":
+      if node.dataType() and node.dataType().target().isEncodable():
+        if node.value() != None:
+          code.append(node.value().printOpen62541CCode())
+
+    if nodetype == "Method":
       if node.executable():
         code.append("attr.executable = true;")
       if node.userExecutable():
         code.append("attr.userExecutable = true;")
 
-    if nodetype == "VariableType":
-      typeDefinition = None
-      for r in node.getReferences():
-        if r.isForward() and r.referenceType().id().ns == 0 and r.referenceType().id().i == 40:
-          typeDefinition = r.target()
-          break
-      if typeDefinition == None:
-        code.append("UA_NodeId typeDefinition = UA_NODEID_NULL;")
-      else:
-        code.append("UA_NodeId typeDefinition = " + str(self.getCreateNodeIDMacro(typeDefinition)) + ";")
+    if nodetype in ["ObjectType", "ReferenceType", "DataType", "VariableType"]:
+      if node.isAbstract():
+        code.append("attr.isAbstract = true;")
+    if nodetype == "ReferenceType":
+      if node.__reference_inverseName__ != "":
+        code.append("attr.inverseName = UA_LOCALIZEDTEXT(\"en_US\", \"" + node.__reference_inverseName__ + "\");")
+      if node.symmetric():
+        code.append("attr.symmetric  = true;")
 
     # Print the browsename
     extrNs = node.browseName().split(":")
@@ -279,90 +239,13 @@ class open62541_MacroHelper():
     else:
       code.append("UA_QualifiedName nodeName = UA_QUALIFIEDNAME(0, \"" + str(node.browseName()) + "\");")
 
-    # In case of a MethodNode: Add in|outArg struct generation here. Mandates that namespace reordering was done using
-    # Djikstra (check that arguments have not been printed). (@ichrispa)
-    if nodetype in ["Object", "Variable"]:
+    # In case of a MethodNode: Add in|outArg struct generation here. Mandates
+    # that namespace reordering was done using Djikstra
+    if nodetype in ["Object", "Variable", "VariableType", "ObjectType", "View",
+                    "ReferenceType", "DataType"]:
         code.append("UA_Server_add%sNode_begin(server, nodeId, nodeName, attr, NULL);" % nodetype)
+    elif nodetype != "Method":
+        code.append("UA_Server_addMethodNode_begin(server, nodeId, nodeName, attr, NULL, NULL, NULL);" % nodetype)
     else:
-      code.append("UA_Server_add%sNode(server, nodeId, parentNodeId, parentReferenceNodeId, nodeName" % nodetype)
-      if nodetype == "VariableType":
-        code.append("       , typeDefinition")
-      if nodetype != "Method":
-        code.append("       , attr, NULL, NULL);")
-      else:
-        code.append("       , attr, (UA_MethodCallback) NULL, NULL, " + str(len(inArgVal)) + ", inputArguments,  " + str(len(outArgVal)) + ", outputArguments, NULL);")
-      
-    return code
-
-  def getCreateNodeBootstrap(self, node):
-    nodetype = ""
-    code = []
-
-    code.append("// Node: " + str(node) + ", " + str(node.browseName()))
-
-    if node.nodeClass() == NODE_CLASS_OBJECT:
-      nodetype = "Object"
-    elif node.nodeClass() == NODE_CLASS_VARIABLE:
-      nodetype = "Variable"
-    elif node.nodeClass() == NODE_CLASS_METHOD:
-      nodetype = "Method"
-    elif node.nodeClass() == NODE_CLASS_OBJECTTYPE:
-      nodetype = "ObjectType"
-    elif node.nodeClass() == NODE_CLASS_REFERENCETYPE:
-      nodetype = "ReferenceType"
-    elif node.nodeClass() == NODE_CLASS_VARIABLETYPE:
-      nodetype = "VariableType"
-    elif node.nodeClass() == NODE_CLASS_DATATYPE:
-      nodetype = "DataType"
-    elif node.nodeClass() == NODE_CLASS_VIEW:
-      nodetype = "View"
-    else:
-      code.append("/* undefined nodeclass */")
-      return;
-
-    code.append("UA_" + nodetype + "Node *" + node.getCodePrintableID() + " = UA_NodeStore_new" + nodetype + "Node();")
-    if not "browsename" in self.supressGenerationOfAttribute:
-      extrNs = node.browseName().split(":")
-      if len(extrNs) > 1:
-        code.append(node.getCodePrintableID() + "->browseName = UA_QUALIFIEDNAME_ALLOC(" +  str(extrNs[0]) + ", \"" + extrNs[1] + "\");")
-      else:
-        code.append(node.getCodePrintableID() + "->browseName = UA_QUALIFIEDNAME_ALLOC(0, \"" + node.browseName() + "\");")
-    if not "displayname" in self.supressGenerationOfAttribute:
-      code.append(node.getCodePrintableID() + "->displayName = UA_LOCALIZEDTEXT_ALLOC(\"en_US\", \"" +  node.displayName() + "\");")
-    if not "description" in self.supressGenerationOfAttribute:
-      code.append(node.getCodePrintableID() + "->description = UA_LOCALIZEDTEXT_ALLOC(\"en_US\", \"" +  node.description() + "\");")
-
-    if nodetype in ["Variable", "VariableType"]:
-      code.append(node.getCodePrintableID() + "->dataType = " + str(self.getCreateNodeIDMacro(node.dataType().target())) + ";")
-      code.append(node.getCodePrintableID() + "->valueRank = " + str(node.valueRank()) + ";")
-
-    if not "writemask" in self.supressGenerationOfAttribute:
-        if node.__node_writeMask__ != 0:
-          code.append(node.getCodePrintableID() + "->writeMask = (UA_Int32) " +  str(node.__node_writeMask__) + ";")
-    if not "userwritemask" in self.supressGenerationOfAttribute:
-        if node.__node_userWriteMask__ != 0:
-          code.append(node.getCodePrintableID() + "->userWriteMask = (UA_Int32) " + str(node.__node_userWriteMask__) + ";")
-    if not "nodeid" in self.supressGenerationOfAttribute:
-      if node.id().ns != 0:
-        code.append(node.getCodePrintableID() + "->nodeId.namespaceIndex = " + str(node.id().ns) + ";")
-      if node.id().i != None:
-        code.append(node.getCodePrintableID() + "->nodeId.identifier.numeric = " + str(node.id().i) + ";")
-      elif node.id().b != None:
-        code.append(node.getCodePrintableID() + "->nodeId.identifierType = UA_NODEIDTYPE_BYTESTRING;")
-        logger.error("ByteString IDs for nodes has not been implemented yet.")
-        return []
-      elif node.id().g != None:
-        #<jpfr> the string is sth like { .length = 111, .data = <ptr> }
-        #<jpfr> there you _may_ alloc the <ptr> on the heap
-        #<jpfr> for the guid, just set it to {.data1 = 111, .data2 = 2222, ....
-        code.append(node.getCodePrintableID() + "->nodeId.identifierType = UA_NODEIDTYPE_GUID;")
-        logger.error(self, "GUIDs for nodes has not been implemented yet.")
-        return []
-      elif node.id().s != None:
-        code.append(node.getCodePrintableID() + "->nodeId.identifierType = UA_NODEIDTYPE_STRING;")
-        code.append(node.getCodePrintableID() + "->nodeId.identifier.numeric = UA_STRING_ALLOC(\"" + str(node.id().i) + "\");")
-      else:
-        logger.error("Node ID is not numeric, bytestring, guid or string. I do not know how to create c code for that...")
-        return []
-
+      raise Exception("invaid node type")
     return code

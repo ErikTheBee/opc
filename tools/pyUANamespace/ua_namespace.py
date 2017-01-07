@@ -643,10 +643,7 @@ class opcua_namespace():
     header.append('#ifndef '+outfilename.upper()+'_H_')
     header.append('#define '+outfilename.upper()+'_H_')
     header.append('#ifdef UA_NO_AMALGAMATION')
-    header.append(  '#include "server/ua_server_internal.h"')
-    header.append(  '#include "server/ua_nodes.h"')
-    header.append('  #include "ua_util.h"')
-    header.append('  #include "ua_types.h"')
+    header.append('  #include "ua_server.h"')
     header.append('  #include "ua_types_encoding_binary.h"')
     header.append('  #include "ua_types_generated_encoding_binary.h"')
     header.append('  #include "ua_transport_generated_encoding_binary.h"')
@@ -663,15 +660,6 @@ class opcua_namespace():
     header.append('#ifndef UA_ENCODINGOFFSET_BINARY')
     header.append('#  define UA_ENCODINGOFFSET_BINARY 2')
     header.append('#endif')
-    header.append('#ifndef NULL')
-    header.append('  #define NULL ((void *)0)')
-    header.append('#endif')
-    header.append('#ifndef UA_malloc')
-    header.append('  #define UA_malloc(_p_size) malloc(_p_size)')
-    header.append('#endif')
-    header.append('#ifndef UA_free')
-    header.append('  #define UA_free(_p_ptr) free(_p_ptr)')
-    header.append('#endif')
     
     code.append('#include "'+outfilename+'.h"')
     code.append("UA_INLINE UA_StatusCode "+outfilename+"(UA_Server *server) {")
@@ -685,26 +673,26 @@ class opcua_namespace():
         name = name.replace("\"","\\\"")
         code.append("if (UA_Server_addNamespace(server, \"{0}\") != {1})\n    return UA_STATUSCODE_BADUNEXPECTEDERROR;".format(name, nsid))
 
-    # Find all references necessary to create the namespace and
-    # "Bootstrap" them so all other nodes can safely use these referencetypes whenever
-    # they can locate both source and target of the reference.
-    logger.debug("Collecting all references used in the namespace.")
-    refsUsed = []
-    for n in self.nodes:
-      # Since we are already looping over all nodes, use this chance to print NodeId defines
-      if n.id().ns != 0:
-        nc = n.nodeClass()
-        if nc != NODE_CLASS_OBJECT and nc != NODE_CLASS_VARIABLE and nc != NODE_CLASS_VIEW:
-          header = header + codegen.getNodeIdDefineString(n)
+    # # Find all references necessary to create the namespace and
+    # # "Bootstrap" them so all other nodes can safely use these referencetypes whenever
+    # # they can locate both source and target of the reference.
+    # logger.debug("Collecting all references used in the namespace.")
+    # refsUsed = []
+    # for n in self.nodes:
+    #   # Since we are already looping over all nodes, use this chance to print NodeId defines
+    #   if n.id().ns != 0:
+    #     nc = n.nodeClass()
+    #     if nc != NODE_CLASS_OBJECT and nc != NODE_CLASS_VARIABLE and nc != NODE_CLASS_VIEW:
+    #       header = header + codegen.getNodeIdDefineString(n)
 
-      # Now for the actual references...
-      for r in n.getReferences():
-        # Only print valid references in namespace 0 (users will not want their refs bootstrapped)
-        if not r.referenceType() in refsUsed and r.referenceType() != None and r.referenceType().id().ns == 0:
-          refsUsed.append(r.referenceType())
-    logger.debug(str(len(refsUsed)) + " reference types are used in the namespace, which will now get bootstrapped.")
-    for r in refsUsed:
-      code = code + r.printOpen62541CCode(unPrintedNodes, unPrintedRefs);
+    #   # Now for the actual references...
+    #   for r in n.getReferences():
+    #     # Only print valid references in namespace 0 (users will not want their refs bootstrapped)
+    #     if not r.referenceType() in refsUsed and r.referenceType() != None and r.referenceType().id().ns == 0:
+    #       refsUsed.append(r.referenceType())
+    # logger.debug(str(len(refsUsed)) + " reference types are used in the namespace, which will now get bootstrapped.")
+    # for r in refsUsed:
+    #   code = code + r.printOpen62541CCode(unPrintedNodes, unPrintedRefs);
 
     header.append("extern UA_StatusCode "+outfilename+"(UA_Server *server);\n")
     header.append("#endif /* "+outfilename.upper()+"_H_ */")
@@ -714,10 +702,8 @@ class opcua_namespace():
     logger.debug("Printing all other nodes.")
     for n in self.nodes:
       code = code + n.printOpen62541CCode(unPrintedNodes, unPrintedRefs, supressGenerationOfAttribute=supressGenerationOfAttribute)
-    # now finish nodes
-    codegen = open62541_MacroHelper(supressGenerationOfAttribute=supressGenerationOfAttribute)
-    for n in reversed(self.nodes):
-      code = code + codegen.finishCreateNodeNoBootstrap(n)
+      if n in unPrintedNodes:
+        unPrintedNodes.remove(n)
 
     if len(unPrintedNodes) != 0:
       logger.warn("" + str(len(unPrintedNodes)) + " nodes could not be translated to code.")

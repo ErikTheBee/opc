@@ -954,7 +954,8 @@ UA_Server_addObjectTypeNode(UA_Server *server, const UA_NodeId requestedNewNodeI
 }
 
 static UA_INLINE UA_StatusCode
-UA_Server_addObjectTypeNode_begin(UA_Server *server, const UA_NodeId requestedNewNodeId,
+UA_Server_addObjectTypeNode_begin(UA_Server *server,
+                                  const UA_NodeId requestedNewNodeId,
                                   const UA_QualifiedName browseName,
                                   const UA_ObjectTypeAttributes attr,
                                   UA_NodeId *outNewNodeId) {
