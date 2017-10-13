@@ -6,10 +6,10 @@ set -e
 if ! [ -z ${SONAR+x} ]; then
 	build-wrapper-linux-x86-64 --out-dir bw-output cmake -DCMAKE_BUILD_TYPE=Debug . && make -j2
 	echo "Sonar cube ==== $SONARQUBE_SKIPPED"
-	sonar-scanner  -e -X
+	sonar-scanner
 	export SONARQUBE_SKIPPED=false
 	echo "Sonar cube ==== $SONARQUBE_SKIPPED"
-	sonar-scanner  -e -X
+	sonar-scanner
 	exit 0
 fi
 
