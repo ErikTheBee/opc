@@ -1,6 +1,14 @@
 #!/bin/bash
 set -e
 
+
+# Sonar code quality
+if ! [ -z ${SONAR+x} ]; then
+	build-wrapper-linux-x86-64 --out-dir bw-output make -j2
+	cd ..
+	sonar-scanner
+fi
+
 # Docker build test
 if ! [ -z ${DOCKER+x} ]; then
     docker build -t open62541 .

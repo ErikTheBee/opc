@@ -52,7 +52,17 @@ matrix:
       cache:
         directories:
           - $HOME/Library/Caches/Homebrew
-
+    - os: linux
+      compiler: gcc
+      addons:
+        sonarcloud:
+          organization: open62541
+          token:
+            secure: "BSoXdCDmHOBQONKq50NGTP9He2FiLnkYXCZZuYwzE1nGocBJBnaipcCvFxfBuo7as4T1+9hR+6xKexpxhZxXVUdoBP8sIzg94b0GvBaJBqaW4nl1nqD70O+J5N/+9wXun8nfBcn1qYPtAITE53Z04P3xylYxONzT3HRWNbCmwx49vu3Xu1CxH864Cq/Oa0yXWeUQ34uRGevrYoWuExsG/RFLHxv4tJ2SIdm25KiD/nHmahT0EXluYYCHvwyAQZKTFnW63NH3RtU3eWwNt5hp+De2YQCXKyTQ5ZafAm/T+9x8OHg7zeLYBLQl/dwEHmolbvACN+BRYEO3E1tmJvUaQYZILvoMPvg1uaQmggbrWq/M/kMbesBKIIR6/h72UxHMoARbWkVc0EZFLlR1HainDA5WB6XasBcW/2ocuIcUqRE4arxonmc/xY2+gGT73m58guIk7yCe6C8WBAFtxINyTa+jGGWnDfw+anBeglw6Lr5EW+Tky8mPC872i64shufCD8SGKvoQaROldSAiiC0VxFNLHIho/blq8HSfhH6OeDFL1zzQvFOsgGBsIQuEvKy94Tpy52bn+8K8ASbe3ujwhFHH4Yd+8ewHPneBVwFhGa3NkVt9bEm2opML9zwHdbAnawi3xl/cyeiZbK/smrGhoB7qmPouNk+WfrOd4uW4dc0="
+      env: SONAR=true
+      cache:
+        directories:
+          - '$HOME/.sonar/cache'
 addons:
   apt:
     sources:
