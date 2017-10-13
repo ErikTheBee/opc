@@ -22,14 +22,6 @@ matrix:
         - ANALYZE=false
         - PYTHON=python2
     - os: linux
-      compiler: gcc
-      env: ANALYZE=true
-    - os: linux
-      compiler: gcc
-      env: DOCKER=true
-      services:
-        - docker
-    - os: linux
       compiler: clang
       env:
         - ANALYZE=false
@@ -39,12 +31,6 @@ matrix:
       env:
         - ANALYZE=false
         - PYTHON=python3
-    - os: linux
-      compiler: clang
-      env: ANALYZE=true
-    - os: linux
-      compiler: clang
-      env: FUZZER=true
     - os: osx
       compiler: clang
       # disable homebrew auto update which takes a lot of time
@@ -52,6 +38,20 @@ matrix:
       cache:
         directories:
           - $HOME/Library/Caches/Homebrew
+    - os: linux
+      compiler: gcc
+      env: ANALYZE=true
+    - os: linux
+      compiler: clang
+      env: ANALYZE=true
+    - os: linux
+      compiler: clang
+      env: FUZZER=true
+    - os: linux
+      compiler: gcc
+      env: DOCKER=true
+      services:
+        - docker
     - os: linux
       compiler: gcc
       addons:

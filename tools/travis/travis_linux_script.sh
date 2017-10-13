@@ -6,6 +6,7 @@ set -e
 if ! [ -z ${SONAR+x} ]; then
 	build-wrapper-linux-x86-64 --out-dir bw-output cmake -DCMAKE_BUILD_TYPE=Debug . && make -j2
 	sonar-scanner
+	exit 0
 fi
 
 # Docker build test
