@@ -678,33 +678,41 @@ UA_Variant_setRangeCopy(UA_Variant *v, const void *array,
  * ExtensionObject
  * ^^^^^^^^^^^^^^^
  *
- * ExtensionObjects may contain scalars of any data type. Even those that are
- * unknown to the receiver. See the section on :ref:`generic-types` on how types
- * are described. If the received data type is unknown, the encoded string and
- * target NodeId is stored instead of the decoded value. */
+ * ExtensionObjects are containers that can hold scalars of any data type. Even
+ * data types that are unknown to the receiver. If the data type can not be
+ * decoded, the received encoding is stored in a string together with the data
+ * type NodeId. */
 typedef enum {
-    UA_EXTENSIONOBJECT_ENCODED_NOBODY     = 0,
-    UA_EXTENSIONOBJECT_ENCODED_BYTESTRING = 1,
-    UA_EXTENSIONOBJECT_ENCODED_XML        = 2,
-    UA_EXTENSIONOBJECT_DECODED            = 3,
-    UA_EXTENSIONOBJECT_DECODED_NODELETE   = 4 /* Don't delete the content
-                                                 together with the
-                                                 ExtensionObject */
+    UA_EXTENSIONOBJECT_ENCODED_NOBODY     = 0, /* Empty ExtensionObject */
+    UA_EXTENSIONOBJECT_ENCODED_BYTESTRING = 1, /* Value in binary encoding */
+    UA_EXTENSIONOBJECT_ENCODED_XML        = 2, /* Value in XML encoding */
+    UA_EXTENSIONOBJECT_DECODED            = 3, /* Decoded value */
+    UA_EXTENSIONOBJECT_DECODED_NODELETE   = 4  /* Decoded value with a separate
+                                                  lifecycle */
 } UA_ExtensionObjectEncoding;
 
 typedef struct {
     UA_ExtensionObjectEncoding encoding;
     union {
         struct {
-            UA_NodeId typeId;   /* The nodeid of the datatype */
-            UA_ByteString body; /* The bytestring of the encoded data */
+            UA_NodeId typeId;   /* The NodeId of the data type */
+            UA_ByteString body; /* The ByteString of the encoded data */
         } encoded;
         struct {
-            const UA_DataType *type;
-            void *data;
+            const UA_DataType *type; /* The data type */
+            void *data; /* The decoded data */
         } decoded;
     } content;
 } UA_ExtensionObject;
+
+static UA_INLINE UA_ExtensionObject
+UA_EXTENSIONOBJECT(void *value, const UA_DataType *type) {
+    UA_ExtensionObject eo;
+    eo.encoding = UA_EXTENSIONOBJECT_DECODED;
+    eo.content.decoded.type = type;
+    eo.content.decoded.data = value;
+    return eo;
+}
 
 /**
  * .. _datavalue:
