@@ -53,10 +53,17 @@ UA_Server_addPubSubConnection(UA_Server *server, const UA_PubSubConnectionConfig
             server->pubSubManager.connections = newConnectionsField;
             UA_PubSubConnection *newConnection = &server->pubSubManager.connections[server->pubSubManager.connectionsSize];
             memset(newConnection, 0, sizeof(UA_PubSubConnection));
+            LIST_INIT(&newConnection->writerGroups);
+            //workaround - fixing issue with queue.h and realloc.
+            for(size_t n = 0; n < server->pubSubManager.connectionsSize; n++){
+                if(server->pubSubManager.connections[n].writerGroups.lh_first){
+                    server->pubSubManager.connections[n].writerGroups.lh_first->listEntry.le_prev = &server->pubSubManager.connections[n].writerGroups.lh_first;
+                }
+            }
             newConnection->config = tmpConnectionConfig;
             newConnection->channel = server->config.pubsubTransportLayers[i].createPubSubChannel(newConnection->config);
             if(!newConnection->channel){
-                UA_PubSubConnection_delete(newConnection);
+                UA_PubSubConnection_deleteMembers(server, newConnection);
                 if(server->pubSubManager.connectionsSize > 0){
                     newConnectionsField = (UA_PubSubConnection *)
                             UA_realloc(server->pubSubManager.connections,
@@ -94,7 +101,8 @@ UA_Server_addPubSubConnection(UA_Server *server, const UA_PubSubConnectionConfig
  * @param connectionIdentifier
  * @return UA_STATUSCODE_GOOD on success
  */
-UA_StatusCode UA_Server_removePubSubConnection(UA_Server *server, UA_NodeId connectionIdentifier) {
+UA_StatusCode
+UA_Server_removePubSubConnection(UA_Server *server, UA_NodeId connectionIdentifier) {
     //search the identified Connection and store the Connection index
     size_t connectionIndex;
     UA_PubSubConnection *currentConnection = NULL;
@@ -104,10 +112,10 @@ UA_StatusCode UA_Server_removePubSubConnection(UA_Server *server, UA_NodeId conn
             break;
         }
     }
-    if(!currentConnection){
+    if(!currentConnection)
         return UA_STATUSCODE_BADNOTFOUND;
-    }
-    UA_PubSubConnection_delete(currentConnection);
+
+    UA_PubSubConnection_deleteMembers(server, currentConnection);
     server->pubSubManager.connectionsSize--;
     //remove the connection from the pubSubManager, move the last connection into the allocated memory of the deleted connection
     if(server->pubSubManager.connectionsSize != connectionIndex){
@@ -122,6 +130,12 @@ UA_StatusCode UA_Server_removePubSubConnection(UA_Server *server, UA_NodeId conn
                 UA_realloc(server->pubSubManager.connections, sizeof(UA_PubSubConnection) * server->pubSubManager.connectionsSize);
         if(!server->pubSubManager.connections){
             return UA_STATUSCODE_BADINTERNALERROR;
+        }
+        //workaround - fixing issue with queue.h and realloc.
+        for(size_t n = 0; n < server->pubSubManager.connectionsSize; n++){
+            if(server->pubSubManager.connections[n].writerGroups.lh_first){
+                server->pubSubManager.connections[n].writerGroups.lh_first->listEntry.le_prev = &server->pubSubManager.connections[n].writerGroups.lh_first;
+            }
         }
     }
     return UA_STATUSCODE_GOOD;
@@ -169,6 +183,13 @@ UA_Server_addPublishedDataSet(UA_Server *server, const UA_PublishedDataSetConfig
     server->pubSubManager.publishedDataSets = newPubSubDataSetField;
     UA_PublishedDataSet *newPubSubDataSet = &server->pubSubManager.publishedDataSets[server->pubSubManager.publishedDataSetsSize];
     memset(newPubSubDataSet, 0, sizeof(UA_PublishedDataSet));
+    LIST_INIT(&newPubSubDataSet->fields);
+    //workaround - fixing issue with queue.h and realloc.
+    for(size_t n = 0; n < server->pubSubManager.publishedDataSetsSize; n++){
+        if(server->pubSubManager.publishedDataSets[n].fields.lh_first){
+            server->pubSubManager.publishedDataSets[n].fields.lh_first->listEntry.le_prev = &server->pubSubManager.publishedDataSets[n].fields.lh_first;
+        }
+    }
     newPubSubDataSet->config = tmpPublishedDataSetConfig;
     if(tmpPublishedDataSetConfig.publishedDataSetType == UA_PUBSUB_DATASET_PUBLISHEDITEMS_TEMPLATE){
         //parse template config and add fields (later PubSub batch)
@@ -208,7 +229,19 @@ UA_Server_removePublishedDataSet(UA_Server *server, UA_NodeId pdsIdentifier) {
     if(!publishedDataSet){
         return UA_STATUSCODE_BADNOTFOUND;
     }
-    UA_PublishedDataSet_delete(publishedDataSet);
+    //search for referenced writers -> delete this writers. (Standard: writer must be connected with PDS)
+    for(size_t i = 0; i < server->pubSubManager.connectionsSize; i++){
+        UA_WriterGroup *writerGroup;
+        LIST_FOREACH(writerGroup, &server->pubSubManager.connections[i].writerGroups, listEntry){
+            UA_DataSetWriter *currentWriter, *tmpWriterGroup;
+            LIST_FOREACH_SAFE(currentWriter, &writerGroup->writers, listEntry, tmpWriterGroup){
+                if(UA_NodeId_equal(&currentWriter->identifier, &publishedDataSet->identifier)){
+                    UA_WriterGroup_removeDataSetWriter(server, currentWriter->identifier);
+                }
+            }
+        }
+    }
+    UA_PublishedDataSet_deleteMembers(server, publishedDataSet);
     server->pubSubManager.publishedDataSetsSize--;
     //copy the last PDS to the removed PDS inside the allocated memory block
     if(server->pubSubManager.publishedDataSetsSize != publishedDataSetIndex){
@@ -222,8 +255,14 @@ UA_Server_removePublishedDataSet(UA_Server *server, UA_NodeId pdsIdentifier) {
     } else {
         server->pubSubManager.publishedDataSets = (UA_PublishedDataSet *)
                 UA_realloc(server->pubSubManager.publishedDataSets, sizeof(UA_PublishedDataSet) * server->pubSubManager.publishedDataSetsSize);
-        if (!server->pubSubManager.publishedDataSets) {
+        if(!server->pubSubManager.publishedDataSets){
             return UA_STATUSCODE_BADINTERNALERROR;
+        }
+        //workaround - fixing issue with queue.h and realloc.
+        for(size_t n = 0; n < server->pubSubManager.publishedDataSetsSize; n++){
+            if(server->pubSubManager.publishedDataSets[n].fields.lh_first){
+                server->pubSubManager.publishedDataSets[n].fields.lh_first->listEntry.le_prev = &server->pubSubManager.publishedDataSets[n].fields.lh_first;
+            }
         }
     }
     return UA_STATUSCODE_GOOD;
