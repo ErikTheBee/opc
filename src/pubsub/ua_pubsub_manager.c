@@ -10,14 +10,6 @@
 
 #define UA_DATETIMESTAMP_2000 125911584000000000
 
-/**
- * Add new Connection to the current PubSub configuration.
- *
- * @param server
- * @param connectionConfig config of the new Connection
- * @param connectionIdentifier nodeId of the generated Connection (NULL if not needed)
- * @return UA_STATUSCODE_GOOD if success
- */
 UA_StatusCode
 UA_Server_addPubSubConnection(UA_Server *server, const UA_PubSubConnectionConfig *connectionConfig,
                               UA_NodeId *connectionIdentifier) {
@@ -93,21 +85,13 @@ UA_Server_addPubSubConnection(UA_Server *server, const UA_PubSubConnectionConfig
     return UA_STATUSCODE_BADNOTFOUND;
 }
 
-/**
- * Remove Connection, identified by the NodeId. Deletion of Connection
- * removes all contained WriterGroups and Writers.
- *
- * @param server
- * @param connectionIdentifier
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_StatusCode
-UA_Server_removePubSubConnection(UA_Server *server, UA_NodeId connectionIdentifier) {
+UA_Server_removePubSubConnection(UA_Server *server, const UA_NodeId connection) {
     //search the identified Connection and store the Connection index
     size_t connectionIndex;
     UA_PubSubConnection *currentConnection = NULL;
     for(connectionIndex = 0; connectionIndex < server->pubSubManager.connectionsSize; connectionIndex++){
-        if(UA_NodeId_equal(&connectionIdentifier, &server->pubSubManager.connections[connectionIndex].identifier)){
+        if(UA_NodeId_equal(&connection, &server->pubSubManager.connections[connectionIndex].identifier)){
             currentConnection = &server->pubSubManager.connections[connectionIndex];
             break;
         }
@@ -117,15 +101,18 @@ UA_Server_removePubSubConnection(UA_Server *server, UA_NodeId connectionIdentifi
 
     UA_PubSubConnection_deleteMembers(server, currentConnection);
     server->pubSubManager.connectionsSize--;
-    //remove the connection from the pubSubManager, move the last connection into the allocated memory of the deleted connection
+    //remove the connection from the pubSubManager, move the last connection
+    //into the allocated memory of the deleted connection
     if(server->pubSubManager.connectionsSize != connectionIndex){
         memcpy(&server->pubSubManager.connections[connectionIndex],
-               &server->pubSubManager.connections[server->pubSubManager.connectionsSize], sizeof(UA_PubSubConnection));
+               &server->pubSubManager.connections[server->pubSubManager.connectionsSize],
+               sizeof(UA_PubSubConnection));
     }
+
     if(server->pubSubManager.connectionsSize <= 0){
         UA_free(server->pubSubManager.connections);
         server->pubSubManager.connections = NULL;
-    }  else {
+    } else {
         server->pubSubManager.connections = (UA_PubSubConnection *)
                 UA_realloc(server->pubSubManager.connections, sizeof(UA_PubSubConnection) * server->pubSubManager.connectionsSize);
         if(!server->pubSubManager.connections){
@@ -141,14 +128,6 @@ UA_Server_removePubSubConnection(UA_Server *server, UA_NodeId connectionIdentifi
     return UA_STATUSCODE_GOOD;
 }
 
-/**
- * Add PublishedDataSet to the current PubSub configuration.
- *
- * @param server
- * @param publishedDataSetConfig config of the new PDS
- * @param pdsIdentifier nodeId of the generated PDS (NULL if not needed)
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_AddPublishedDataSetResult
 UA_Server_addPublishedDataSet(UA_Server *server, const UA_PublishedDataSetConfig *publishedDataSetConfig,
                               UA_NodeId *pdsIdentifier) {
@@ -206,22 +185,13 @@ UA_Server_addPublishedDataSet(UA_Server *server, const UA_PublishedDataSetConfig
     return result;
 }
 
-/**
- * Remove PublishedDataSet, identified by the NodeId. Deletion of PDS
- * removes all contained and linked PDS Fields. Connected WriterGroups
- * will be also removed.
- *
- * @param server
- * @param pdsIdentifier
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_StatusCode
-UA_Server_removePublishedDataSet(UA_Server *server, UA_NodeId pdsIdentifier) {
+UA_Server_removePublishedDataSet(UA_Server *server, UA_NodeId pds) {
     //search the identified PublishedDataSet and store the PDS index
     UA_PublishedDataSet *publishedDataSet = NULL;
     size_t publishedDataSetIndex;
     for(publishedDataSetIndex = 0; publishedDataSetIndex < server->pubSubManager.publishedDataSetsSize; publishedDataSetIndex++){
-        if(UA_NodeId_equal(&server->pubSubManager.publishedDataSets[publishedDataSetIndex].identifier, &pdsIdentifier)){
+        if(UA_NodeId_equal(&server->pubSubManager.publishedDataSets[publishedDataSetIndex].identifier, &pds)){
             publishedDataSet = &server->pubSubManager.publishedDataSets[publishedDataSetIndex];
             break;
         };
@@ -236,7 +206,7 @@ UA_Server_removePublishedDataSet(UA_Server *server, UA_NodeId pdsIdentifier) {
             UA_DataSetWriter *currentWriter, *tmpWriterGroup;
             LIST_FOREACH_SAFE(currentWriter, &writerGroup->writers, listEntry, tmpWriterGroup){
                 if(UA_NodeId_equal(&currentWriter->identifier, &publishedDataSet->identifier)){
-                    UA_WriterGroup_removeDataSetWriter(server, currentWriter->identifier);
+                    UA_Server_removeDataSetWriter(server, currentWriter->identifier);
                 }
             }
         }
@@ -268,19 +238,16 @@ UA_Server_removePublishedDataSet(UA_Server *server, UA_NodeId pdsIdentifier) {
     return UA_STATUSCODE_GOOD;
 }
 
-/**
- * Calculate the time difference between current time and UTC (00:00) on January 1, 2000.
- */
+/* Calculate the time difference between current time and UTC (00:00) on January
+ * 1, 2000. */
 UA_UInt32
 UA_PubSubConfigurationVersionTimeDifference() {
     UA_UInt32 timeDiffSince2000 = (UA_UInt32) (UA_DateTime_now() - UA_DATETIMESTAMP_2000);
     return timeDiffSince2000;
 }
 
-/**
- * Generate a new unique NodeId. This NodeId will be used for the
- * information model representation of PubSub entities.
- */
+/* Generate a new unique NodeId. This NodeId will be used for the information
+ * model representation of PubSub entities. */
 void
 UA_PubSubManager_generateUniqueNodeId(UA_Server *server, UA_NodeId *nodeId) {
     UA_NodeId newNodeId = UA_NODEID_NUMERIC(0, 0);
@@ -289,13 +256,8 @@ UA_PubSubManager_generateUniqueNodeId(UA_Server *server, UA_NodeId *nodeId) {
     UA_NodeId_copy(&newNodeId, nodeId);
 }
 
-/**
- * Delete the current PubSub configuration including all nested members. This action also delete
- * the configured PubSub transport Layers.
- *
- * @param server
- * @param pubSubManager
- */
+/* Delete the current PubSub configuration including all nested members. This
+ * action also delete the configured PubSub transport Layers. */
 void
 UA_PubSubManager_delete(UA_Server *server, UA_PubSubManager *pubSubManager) {
     UA_LOG_INFO(server->config.logger, UA_LOGCATEGORY_SERVER, "PubSub cleanup was called.");

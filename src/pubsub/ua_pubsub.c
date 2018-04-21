@@ -13,8 +13,10 @@
 /**********************************************/
 /*               Connection                   */
 /**********************************************/
+
 UA_StatusCode
-UA_PubSubConnectionConfig_copy(const UA_PubSubConnectionConfig *src, UA_PubSubConnectionConfig *dst) {
+UA_PubSubConnectionConfig_copy(const UA_PubSubConnectionConfig *src,
+                               UA_PubSubConnectionConfig *dst) {
     UA_StatusCode retVal = UA_STATUSCODE_GOOD;
     memcpy(dst, src, sizeof(UA_PubSubConnectionConfig));
     retVal |= UA_String_copy(&src->name, &dst->name);
@@ -22,30 +24,29 @@ UA_PubSubConnectionConfig_copy(const UA_PubSubConnectionConfig *src, UA_PubSubCo
     retVal |= UA_String_copy(&src->transportProfileUri, &dst->transportProfileUri);
     retVal |= UA_Variant_copy(&src->connectionTransportSettings, &dst->connectionTransportSettings);
     if(src->connectionPropertiesSize > 0){
-        dst->connectionProperties = (UA_KeyValuePair *) UA_calloc(src->connectionPropertiesSize, sizeof(UA_KeyValuePair));
+        dst->connectionProperties = (UA_KeyValuePair *)
+            UA_calloc(src->connectionPropertiesSize, sizeof(UA_KeyValuePair));
         if(!dst->connectionProperties){
             return UA_STATUSCODE_BADOUTOFMEMORY;
         }
         for(size_t i = 0; i < src->connectionPropertiesSize; i++){
-            retVal |= UA_QualifiedName_copy(&src->connectionProperties[i].key, &dst->connectionProperties[i].key);
-            retVal |= UA_Variant_copy(&src->connectionProperties[i].value, &dst->connectionProperties[i].value);
+            retVal |= UA_QualifiedName_copy(&src->connectionProperties[i].key,
+                                            &dst->connectionProperties[i].key);
+            retVal |= UA_Variant_copy(&src->connectionProperties[i].value,
+                                      &dst->connectionProperties[i].value);
         }
     }
     return retVal;
 }
 
-/**
- * Get the current config of the Connection.
- *
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_StatusCode
-UA_PubSubConnection_getConfig(UA_Server *server, UA_NodeId connectionIdentifier,
-                              UA_PubSubConnectionConfig *config) {
+UA_Server_getPubSubConnectionConfig(UA_Server *server, const UA_NodeId connection,
+                                    UA_PubSubConnectionConfig *config) {
     if(!config)
         return UA_STATUSCODE_BADINVALIDARGUMENT;
 
-    UA_PubSubConnection *currentPubSubConnection = UA_PubSubConnection_findConnectionbyId(server, connectionIdentifier);
+    UA_PubSubConnection *currentPubSubConnection =
+        UA_PubSubConnection_findConnectionbyId(server, connection);
     if(!currentPubSubConnection)
         return UA_STATUSCODE_BADNOTFOUND;
 
@@ -56,11 +57,6 @@ UA_PubSubConnection_getConfig(UA_Server *server, UA_NodeId connectionIdentifier,
     return UA_STATUSCODE_GOOD;
 }
 
-/**
- * Find a Connection by the connectionIdentifier.
- *
- * @return ptr to Connection or NULL if not found
- */
 UA_PubSubConnection *
 UA_PubSubConnection_findConnectionbyId(UA_Server *server, UA_NodeId connectionIdentifier) {
     for(size_t i = 0; i < server->pubSubManager.connectionsSize; i++){
@@ -91,7 +87,7 @@ UA_PubSubConnection_deleteMembers(UA_Server *server, UA_PubSubConnection *connec
     //remove contained WriterGroups
     UA_WriterGroup *writerGroup, *tmpWriterGroup;
     LIST_FOREACH_SAFE(writerGroup, &connection->writerGroups, listEntry, tmpWriterGroup){
-        UA_PubSubConnection_removeGroup(server, writerGroup->identifier);
+        UA_Server_removeWriterGroup(server, writerGroup->identifier);
     }
     UA_NodeId_deleteMembers(&connection->identifier);
     if(connection->channel){
@@ -100,22 +96,16 @@ UA_PubSubConnection_deleteMembers(UA_Server *server, UA_PubSubConnection *connec
     UA_free(connection->config);
 }
 
-/**
- * Add a new WriterGroup to an existing Connection.
- *
- * @param connectionIdentifier identifier of the PubSubConnection.
- * @param writerGroupIdentifier filled with the created WriterGroup identifier, NULL if not needed
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_StatusCode
-UA_PubSubConnection_addWriterGroup(UA_Server *server, UA_NodeId connectionIdentifier,
-                                   const UA_WriterGroupConfig *writerGroupConfig,
-                                   UA_NodeId *writerGroupIdentifier){
+UA_Server_addWriterGroup(UA_Server *server, const UA_NodeId connection,
+                         const UA_WriterGroupConfig *writerGroupConfig,
+                         UA_NodeId *writerGroupIdentifier) {
     UA_StatusCode retVal = UA_STATUSCODE_GOOD;
     if(!writerGroupConfig)
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     //search the connection by the given connectionIdentifier
-    UA_PubSubConnection *currentConnectionContext = UA_PubSubConnection_findConnectionbyId(server, connectionIdentifier);
+    UA_PubSubConnection *currentConnectionContext =
+        UA_PubSubConnection_findConnectionbyId(server, connection);
     if(!currentConnectionContext)
         return UA_STATUSCODE_BADNOTFOUND;
 
@@ -137,23 +127,19 @@ UA_PubSubConnection_addWriterGroup(UA_Server *server, UA_NodeId connectionIdenti
     return retVal;
 }
 
-/**
- * Remove a Group from the PubSubConnection and delete contained group elements.
- *
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_StatusCode
-UA_PubSubConnection_removeGroup(UA_Server *server, UA_NodeId groupIdentifier){
-    UA_WriterGroup *writerGroup = UA_WriterGroup_findWGbyId(server, groupIdentifier);
-    if(!writerGroup)
+UA_Server_removeWriterGroup(UA_Server *server, const UA_NodeId writerGroup){
+    UA_WriterGroup *wg = UA_WriterGroup_findWGbyId(server, writerGroup);
+    if(!wg)
         return UA_STATUSCODE_BADNOTFOUND;
 
-    UA_PubSubConnection *connection = UA_PubSubConnection_findConnectionbyId(server, writerGroup->linkedConnection);
+    UA_PubSubConnection *connection =
+        UA_PubSubConnection_findConnectionbyId(server, wg->linkedConnection);
     if(!connection)
         return UA_STATUSCODE_BADNOTFOUND;
 
-    UA_WriterGroup_deleteMembers(server, writerGroup);
-    UA_free(writerGroup);
+    UA_WriterGroup_deleteMembers(server, wg);
+    UA_free(wg);
     return UA_STATUSCODE_GOOD;
 }
 
@@ -177,9 +163,11 @@ UA_PublishedDataSetConfig_copy(const UA_PublishedDataSetConfig *src,
                         src->config.itemsTemplate.variablesToAddSize, sizeof(UA_PublishedVariableDataType));
             }
             for(size_t i = 0; i < src->config.itemsTemplate.variablesToAddSize; i++){
-                retVal |= UA_PublishedVariableDataType_copy(&src->config.itemsTemplate.variablesToAdd[i], &dst->config.itemsTemplate.variablesToAdd[i]);
+                retVal |= UA_PublishedVariableDataType_copy(&src->config.itemsTemplate.variablesToAdd[i],
+                                                            &dst->config.itemsTemplate.variablesToAdd[i]);
             }
-            retVal |= UA_DataSetMetaDataType_copy(&src->config.itemsTemplate.metaData, &dst->config.itemsTemplate.metaData);
+            retVal |= UA_DataSetMetaDataType_copy(&src->config.itemsTemplate.metaData,
+                                                  &dst->config.itemsTemplate.metaData);
             break;
         default:
             return UA_STATUSCODE_BADINVALIDARGUMENT;
@@ -187,19 +175,13 @@ UA_PublishedDataSetConfig_copy(const UA_PublishedDataSetConfig *src,
     return retVal;
 }
 
-/**
- * Get the current config of the PublishedDataSetField.
- *
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_StatusCode
-UA_PublishedDataSet_getConfig(UA_Server *server, UA_NodeId publishedDataSetIdentifier,
-                              UA_PublishedDataSetConfig *config){
+UA_Server_getPublishedDataSetConfig(UA_Server *server, const UA_NodeId pds,
+                                    UA_PublishedDataSetConfig *config){
     if(!config)
         return UA_STATUSCODE_BADINVALIDARGUMENT;
 
-    UA_PublishedDataSet *currentPublishedDataSet = UA_PublishedDataSet_findPDSbyId(server,
-                                                                                   publishedDataSetIdentifier);
+    UA_PublishedDataSet *currentPublishedDataSet = UA_PublishedDataSet_findPDSbyId(server, pds);
     if(!currentPublishedDataSet)
         return UA_STATUSCODE_BADNOTFOUND;
 
@@ -210,11 +192,6 @@ UA_PublishedDataSet_getConfig(UA_Server *server, UA_NodeId publishedDataSetIdent
     return UA_STATUSCODE_GOOD;
 }
 
-/**
- * Get PDS by the dataSetIdentifier.
- *
- * @return ptr to PDS or NULL if not found
- */
 UA_PublishedDataSet *
 UA_PublishedDataSet_findPDSbyId(UA_Server *server, UA_NodeId identifier){
     for(size_t i = 0; i < server->pubSubManager.publishedDataSetsSize; i++){
@@ -254,27 +231,20 @@ UA_PublishedDataSet_deleteMembers(UA_Server *server, UA_PublishedDataSet *publis
     UA_DataSetMetaDataType_deleteMembers(&publishedDataSet->dataSetMetaData);
     UA_DataSetField *field, *tmpField;
     LIST_FOREACH_SAFE(field, &publishedDataSet->fields, listEntry, tmpField) {
-        UA_PublishedDataSet_removeField(server, field->identifier);
+        UA_Server_removeDataSetField(server, field->identifier);
     }
     UA_NodeId_deleteMembers(&publishedDataSet->identifier);
 }
 
-/**
- * Adds a new VariableField to an existing PulishedDataSet.
- *
- * @param publishedDataSetIdentifier identifier of the PulishedDataSet.
- * @param fieldIdentifier filled with the created VariableField identifier, NULL if not needed
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_DataSetFieldResult
-UA_PublishedDataSet_addDataSetField(UA_Server *server, UA_NodeId publishedDataSetIdentifier,
-                                    const UA_DataSetFieldConfig *fieldConfig,
-                                    UA_NodeId *fieldIdentifier) {
+UA_Server_addDataSetField(UA_Server *server, const UA_NodeId publishedDataSet,
+                          const UA_DataSetFieldConfig *fieldConfig,
+                          UA_NodeId *fieldIdentifier) {
     UA_StatusCode retVal = UA_STATUSCODE_GOOD;
     if(!fieldConfig)
         return (UA_DataSetFieldResult) {UA_STATUSCODE_BADINVALIDARGUMENT, {0, 0}};
 
-    UA_PublishedDataSet *currentDataSet = UA_PublishedDataSet_findPDSbyId(server, publishedDataSetIdentifier);
+    UA_PublishedDataSet *currentDataSet = UA_PublishedDataSet_findPDSbyId(server, publishedDataSet);
     if(currentDataSet == NULL)
         return (UA_DataSetFieldResult) {UA_STATUSCODE_BADNOTFOUND, {0, 0}};
 
@@ -299,32 +269,34 @@ UA_PublishedDataSet_addDataSetField(UA_Server *server, UA_NodeId publishedDataSe
     if(newField->config.field.variable.promotedField)
         currentDataSet->promotedFieldsCount++;
     currentDataSet->fieldSize++;
-    UA_DataSetFieldResult result = {retVal, {currentDataSet->dataSetMetaData.configurationVersion.majorVersion,
-                                             currentDataSet->dataSetMetaData.configurationVersion.minorVersion}};
+    UA_DataSetFieldResult result =
+        {retVal, {currentDataSet->dataSetMetaData.configurationVersion.majorVersion,
+                  currentDataSet->dataSetMetaData.configurationVersion.minorVersion}};
     return result;
 }
 
-/**
- * Remove a VariableField from the PublishedDataSet.
- *
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_DataSetFieldResult
-UA_PublishedDataSet_removeField(UA_Server *server, UA_NodeId fieldIdentifier) {
-    UA_DataSetField *currentField = UA_DataSetField_findDSFbyId(server, fieldIdentifier);
+UA_Server_removeDataSetField(UA_Server *server, const UA_NodeId dsf) {
+    UA_DataSetField *currentField = UA_DataSetField_findDSFbyId(server, dsf);
     if(!currentField)
         return (UA_DataSetFieldResult) {UA_STATUSCODE_BADNOTFOUND, {0, 0}};
-    UA_PublishedDataSet *parentPublishedDataSet = UA_PublishedDataSet_findPDSbyId(server, currentField->publishedDataSet);
+
+    UA_PublishedDataSet *parentPublishedDataSet =
+        UA_PublishedDataSet_findPDSbyId(server, currentField->publishedDataSet);
     if(!parentPublishedDataSet)
         return (UA_DataSetFieldResult) {UA_STATUSCODE_BADNOTFOUND, {0, 0}};
+
     parentPublishedDataSet->fieldSize--;
     if(currentField->config.field.variable.promotedField)
         parentPublishedDataSet->promotedFieldsCount--;
-    //update major version of PublishedDataSet
-    parentPublishedDataSet->dataSetMetaData.configurationVersion.majorVersion = UA_PubSubConfigurationVersionTimeDifference();
+    
+    /* update major version of PublishedDataSet */
+    parentPublishedDataSet->dataSetMetaData.configurationVersion.majorVersion =
+        UA_PubSubConfigurationVersionTimeDifference();
     UA_DataSetField_deleteMembers(currentField);
-    UA_DataSetFieldResult result = {UA_STATUSCODE_GOOD, {parentPublishedDataSet->dataSetMetaData.configurationVersion.majorVersion,
-                                                         parentPublishedDataSet->dataSetMetaData.configurationVersion.minorVersion}};
+    UA_DataSetFieldResult result =
+        {UA_STATUSCODE_GOOD, {parentPublishedDataSet->dataSetMetaData.configurationVersion.majorVersion,
+                              parentPublishedDataSet->dataSetMetaData.configurationVersion.minorVersion}};
     return result;
 }
 
@@ -340,7 +312,8 @@ UA_DataSetWriterConfig_copy(const UA_DataSetWriterConfig *src,
     retVal |= UA_String_copy(&src->name, &dst->name);
     retVal |= UA_String_copy(&src->dataSetName, &dst->dataSetName);
     retVal |= UA_ExtensionObject_copy(&src->messageSettings, &dst->messageSettings);
-    dst->dataSetWriterProperties = (UA_KeyValuePair *) UA_calloc(src->dataSetWriterPropertiesSize, sizeof(UA_KeyValuePair));
+    dst->dataSetWriterProperties = (UA_KeyValuePair *)
+        UA_calloc(src->dataSetWriterPropertiesSize, sizeof(UA_KeyValuePair));
     if(!dst->dataSetWriterProperties)
         return UA_STATUSCODE_BADOUTOFMEMORY;
     for(size_t i = 0; i < src->dataSetWriterPropertiesSize; i++){
@@ -349,19 +322,14 @@ UA_DataSetWriterConfig_copy(const UA_DataSetWriterConfig *src,
     return retVal;
 }
 
-/**
- * Get the current config of the UA_PubSubDataSetWriter.
- *
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_StatusCode
-UA_DataSetWriter_getConfig(UA_Server *server, UA_NodeId dataSetWriterIdentifier,
-                           UA_DataSetWriterConfig *config){
+UA_Server_getDataSetWriterConfig(UA_Server *server, const UA_NodeId dsw,
+                                 UA_DataSetWriterConfig *config){
     UA_StatusCode retVal = UA_STATUSCODE_GOOD;
     if(!config)
         return UA_STATUSCODE_BADINVALIDARGUMENT;
 
-    UA_DataSetWriter *currentDataSetWriter = UA_DataSetWriter_findDSWbyId(server, dataSetWriterIdentifier);
+    UA_DataSetWriter *currentDataSetWriter = UA_DataSetWriter_findDSWbyId(server, dsw);
     if(!currentDataSetWriter)
         return UA_STATUSCODE_BADNOTFOUND;
 
@@ -372,11 +340,6 @@ UA_DataSetWriter_getConfig(UA_Server *server, UA_NodeId dataSetWriterIdentifier,
     return retVal;
 }
 
-/**
- * Get DataSetWriter by identifier.
- *
- * @return ptr to DataSetWriter or NULL if not found
- */
 UA_DataSetWriter *
 UA_DataSetWriter_findDSWbyId(UA_Server *server, UA_NodeId identifier) {
     for(size_t i = 0; i < server->pubSubManager.connectionsSize; i++){
@@ -441,19 +404,14 @@ UA_WriterGroupConfig_copy(const UA_WriterGroupConfig *src,
     return retVal;
 }
 
-/**
- * Get the current config of the WriterGroup.
- *
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_StatusCode
-UA_WriterGroup_getConfig(UA_Server *server, UA_NodeId writerGroupIdentifier,
-                         UA_WriterGroupConfig *config){
+UA_Server_getWriterGroupConfig(UA_Server *server, const UA_NodeId writerGroup,
+                               UA_WriterGroupConfig *config){
     UA_StatusCode retVal = UA_STATUSCODE_GOOD;
     if(!config)
         return UA_STATUSCODE_BADINVALIDARGUMENT;
 
-    UA_WriterGroup *currentWriterGroup = UA_WriterGroup_findWGbyId(server, writerGroupIdentifier);
+    UA_WriterGroup *currentWriterGroup = UA_WriterGroup_findWGbyId(server, writerGroup);
     if(!currentWriterGroup){
         return UA_STATUSCODE_BADNOTFOUND;
     }
@@ -464,11 +422,6 @@ UA_WriterGroup_getConfig(UA_Server *server, UA_NodeId writerGroupIdentifier,
     return retVal;
 }
 
-/**
- * Get WriterGroup by identifier.
- *
- * @return ptr to WriterGroup or NULL if not found
- */
 UA_WriterGroup *
 UA_WriterGroup_findWGbyId(UA_Server *server, UA_NodeId identifier){
     for(size_t i = 0; i < server->pubSubManager.connectionsSize; i++){
@@ -501,38 +454,28 @@ UA_WriterGroup_deleteMembers(UA_Server *server, UA_WriterGroup *writerGroup) {
     //delete all writers. Therefore removeDataSetWriter is called from PublishedDataSet
     UA_DataSetWriter *dataSetWriter, *tmpDataSetWriter;
     LIST_FOREACH_SAFE(dataSetWriter, &writerGroup->writers, listEntry, tmpDataSetWriter){
-        UA_WriterGroup_removeDataSetWriter(server, dataSetWriter->identifier);
+        UA_Server_removeDataSetWriter(server, dataSetWriter->identifier);
     }
     LIST_REMOVE(writerGroup, listEntry);
     UA_NodeId_deleteMembers(&writerGroup->linkedConnection);
     UA_NodeId_deleteMembers(&writerGroup->identifier);
 }
 
-/**
- * Add a new DataSetWriter to a existing WriterGroup. The DataSetWriter must be coupled with a
- * PublishedDataSet on creation.
- *
- * @info Standard 7.1.5.2.1 defines: The link between the PublishedDataSet and DataSetWriter shall be created
- * when an instance of the DataSetWriterType is created.
- *
- * @param dataSetIdentifier linked PublishedDataSet
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_StatusCode
-UA_WriterGroup_addDataSetWriter(UA_Server *server, UA_NodeId writerGroupIdentifier,
-                                UA_NodeId dataSetIdentifier,
-                                const UA_DataSetWriterConfig *dataSetWriterConfig,
-                                UA_NodeId *writerIdentifier) {
+UA_Server_addDataSetWriter(UA_Server *server,
+                           const UA_NodeId writerGroup, const UA_NodeId dataSet,
+                           const UA_DataSetWriterConfig *dataSetWriterConfig,
+                           UA_NodeId *writerIdentifier) {
     UA_StatusCode retVal = UA_STATUSCODE_GOOD;
     if(!dataSetWriterConfig)
         return UA_STATUSCODE_BADINVALIDARGUMENT;
 
-    UA_PublishedDataSet *currentDataSetContext = UA_PublishedDataSet_findPDSbyId(server, dataSetIdentifier);
+    UA_PublishedDataSet *currentDataSetContext = UA_PublishedDataSet_findPDSbyId(server, dataSet);
     if(!currentDataSetContext)
         return UA_STATUSCODE_BADNOTFOUND;
 
-    UA_WriterGroup *writerGroup = UA_WriterGroup_findWGbyId(server, writerGroupIdentifier);
-    if(!writerGroup)
+    UA_WriterGroup *wg = UA_WriterGroup_findWGbyId(server, writerGroup);
+    if(!wg)
         return UA_STATUSCODE_BADNOTFOUND;
 
     UA_DataSetWriter *newDataSetWriter = (UA_DataSetWriter *) UA_calloc(1, sizeof(UA_DataSetWriter));
@@ -547,7 +490,8 @@ UA_WriterGroup_addDataSetWriter(UA_Server *server, UA_NodeId writerGroupIdentifi
     newDataSetWriter->connectedDataSetVersion = currentDataSetContext->dataSetMetaData.configurationVersion;
     //initialize the queue for the last values
     newDataSetWriter->lastSamplesCount = currentDataSetContext->fieldSize;
-    newDataSetWriter->lastSamples = (UA_DataSetWriterSample * ) UA_calloc(newDataSetWriter->lastSamplesCount, sizeof(UA_DataSetWriterSample));
+    newDataSetWriter->lastSamples = (UA_DataSetWriterSample * )
+        UA_calloc(newDataSetWriter->lastSamplesCount, sizeof(UA_DataSetWriterSample));
     if(!newDataSetWriter->lastSamples) {
         UA_DataSetWriterConfig_deleteMembers(&newDataSetWriter->config);
         UA_free(newDataSetWriter);
@@ -565,23 +509,18 @@ UA_WriterGroup_addDataSetWriter(UA_Server *server, UA_NodeId writerGroupIdentifi
     }
     //connect PublishedDataSet with DataSetWriter
     newDataSetWriter->connectedDataSet = currentDataSetContext->identifier;
-    newDataSetWriter->linkedWriterGroup = writerGroup->identifier;
+    newDataSetWriter->linkedWriterGroup = wg->identifier;
     UA_PubSubManager_generateUniqueNodeId(server, &newDataSetWriter->identifier);
     if(writerIdentifier != NULL)
         UA_NodeId_copy(&newDataSetWriter->identifier, writerIdentifier);
     //add the new writer to the group
-    LIST_INSERT_HEAD(&writerGroup->writers, newDataSetWriter, listEntry);
-    writerGroup->writersCount++;
+    LIST_INSERT_HEAD(&wg->writers, newDataSetWriter, listEntry);
+    wg->writersCount++;
     return retVal;
 }
 
-/**
- * Remove a DataSetWriter from the WriterGroup.
- *
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_StatusCode
-UA_WriterGroup_removeDataSetWriter(UA_Server *server, UA_NodeId writerIdentifier){
+UA_Server_removeDataSetWriter(UA_Server *server, const UA_NodeId dsw){
     UA_DataSetWriter *dataSetWriter = UA_DataSetWriter_findDSWbyId(server, writerIdentifier);
     if(!dataSetWriter)
         return UA_STATUSCODE_BADNOTFOUND;
@@ -604,9 +543,10 @@ UA_WriterGroup_removeDataSetWriter(UA_Server *server, UA_NodeId writerIdentifier
 UA_StatusCode
 UA_DataSetFieldConfig_copy(const UA_DataSetFieldConfig *src, UA_DataSetFieldConfig *dst){
     memcpy(dst, src, sizeof(UA_DataSetFieldConfig));
-    if(src->dataSetFieldType == UA_PUBSUB_DATASETFIELD_VARIABLE){
+    if(src->dataSetFieldType == UA_PUBSUB_DATASETFIELD_VARIABLE) {
         UA_String_copy(&src->field.variable.fieldNameAlias, &dst->field.variable.fieldNameAlias);
-        UA_PublishedVariableDataType_copy(&src->field.variable.publishParameters, &dst->field.variable.publishParameters);
+        UA_PublishedVariableDataType_copy(&src->field.variable.publishParameters,
+                                          &dst->field.variable.publishParameters);
     } else {
         return UA_STATUSCODE_BADNOTSUPPORTED;
     }
@@ -614,20 +554,13 @@ UA_DataSetFieldConfig_copy(const UA_DataSetFieldConfig *src, UA_DataSetFieldConf
     return UA_STATUSCODE_GOOD;
 }
 
-/**
- * Get the current config of the DataSetField.
- *
- * @param server
- * @param dataSetFieldIdentifier
- * @param config
- * @return UA_STATUSCODE_GOOD on success
- */
 UA_StatusCode
-UA_DataSetField_getConfig(UA_Server *server, UA_NodeId dataSetFieldIdentifier, UA_DataSetFieldConfig *config) {
+UA_Server_getDataSetFieldConfig(UA_Server *server, const UA_NodeId dsf,
+                                UA_DataSetFieldConfig *config) {
     UA_StatusCode retVal = UA_STATUSCODE_GOOD;
     if(!config)
         return UA_STATUSCODE_BADINVALIDARGUMENT;
-    UA_DataSetField *currentDataSetField = UA_DataSetField_findDSFbyId(server, dataSetFieldIdentifier);
+    UA_DataSetField *currentDataSetField = UA_DataSetField_findDSFbyId(server, dataSetField);
     if(!currentDataSetField)
         return UA_STATUSCODE_BADNOTFOUND;
     UA_DataSetFieldConfig tmpFieldConfig;

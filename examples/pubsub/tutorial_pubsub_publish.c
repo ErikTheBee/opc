@@ -71,7 +71,7 @@ int main(void) {
     dataSetFieldConfig.field.variable.promotedField = UA_FALSE;
     dataSetFieldConfig.field.variable.publishParameters.publishedVariable = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_LOCALTIME);
     dataSetFieldConfig.field.variable.publishParameters.attributeId = UA_ATTRIBUTEID_VALUE;
-    UA_PublishedDataSet_addDataSetField(server, publishedDataSetIdent, &dataSetFieldConfig, &dataSetFieldIdent);
+    UA_Server_addDataSetField(server, publishedDataSetIdent, &dataSetFieldConfig, &dataSetFieldIdent);
 
     /* Now we create a new WriterGroupConfig and add the group to the existing PubSubConnection. */
     UA_NodeId writerGroupIdent;
@@ -83,7 +83,7 @@ int main(void) {
     writerGroupConfig.encodingMimeType = UA_PUBSUB_ENCODING_UADP;
     /* The configuration flags for the messages are encapsulated inside the message- and transport settings
      * extension objects. These extension objects are defined by the standard. e.g. UadpWriterGroupMessageDataType */
-    UA_PubSubConnection_addWriterGroup(server, connectionIdentifier, &writerGroupConfig, &writerGroupIdent);
+    UA_Server_addWriterGroup(server, connectionIdentifier, &writerGroupConfig, &writerGroupIdent);
 
     /* We need now a DataSetWriter within the WriterGroup. This means we must create a new DataSetWriterConfig and add
      * call the addWriterGroup function. */
@@ -93,8 +93,8 @@ int main(void) {
     dataSetWriterConfig.name = UA_STRING("Demo DataSetWriter");
     dataSetWriterConfig.dataSetWriterId = 62541;
     dataSetWriterConfig.keyFrameCount = 10;
-    UA_WriterGroup_addDataSetWriter(server, writerGroupIdent, publishedDataSetIdent,
-                                    &dataSetWriterConfig, &dataSetWriterIdent);
+    UA_Server_addDataSetWriter(server, writerGroupIdent, publishedDataSetIdent,
+                               &dataSetWriterConfig, &dataSetWriterIdent);
 
     retval |= UA_Server_run(server, &running);
     UA_Server_delete(server);

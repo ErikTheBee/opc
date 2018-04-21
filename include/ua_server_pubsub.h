@@ -97,14 +97,17 @@ UA_Server_addPubSubConnection(UA_Server *server,
                               const UA_PubSubConnectionConfig *connectionConfig,
                               UA_NodeId *connectionIdentifier);
 
+/* Returns a deep copy of the config */
 UA_StatusCode
-UA_Server_removePubSubConnection(UA_Server *server,
-                                 UA_NodeId connectionIdentifier);
+UA_Server_getPubSubConnectionConfig(UA_Server *server,
+                                    const UA_NodeId connection,
+                                    UA_PubSubConnectionConfig *config);
 
+/* Remove Connection, identified by the NodeId. Deletion of Connection
+ * removes all contained WriterGroups and Writers. */
 UA_StatusCode
-UA_PubSubConnection_getConfig(UA_Server *server,
-                              UA_NodeId connectionIdentifier,
-                              UA_PubSubConnectionConfig *config);
+UA_Server_removePubSubConnection(UA_Server *server, const UA_NodeId connection);
+
 /**
  * PublishedDataSets
  * -----------------
@@ -172,12 +175,16 @@ UA_Server_addPublishedDataSet(UA_Server *server,
                               const UA_PublishedDataSetConfig *publishedDataSetConfig,
                               UA_NodeId *pdsIdentifier);
 
+/* Returns a deep copy of the config */
 UA_StatusCode
-UA_Server_removePublishedDataSet(UA_Server *server, UA_NodeId pdsIdentifier);
+UA_Server_getPublishedDataSetConfig(UA_Server *server, const UA_NodeId pds,
+                                    UA_PublishedDataSetConfig *config);
 
+/* Remove PublishedDataSet, identified by the NodeId. Deletion of PDS removes
+ * all contained and linked PDS Fields. Connected WriterGroups will be also
+ * removed. */
 UA_StatusCode
-UA_PublishedDataSet_getConfig(UA_Server *server, UA_NodeId publishedDataSetIdentifier,
-                              UA_PublishedDataSetConfig *config);
+UA_Server_removePublishedDataSet(UA_Server *server, const UA_NodeId pds);
 
 /**
  * DataSetFields
@@ -206,11 +213,7 @@ typedef struct {
         //events need other config later
     } field;
 } UA_DataSetFieldConfig;
-
-UA_StatusCode
-UA_DataSetField_getConfig(UA_Server *server, UA_NodeId dataSetFieldIdentifier,
-                          UA_DataSetFieldConfig *config);
-
+    
 void
 UA_DataSetFieldConfig_deleteMembers(UA_DataSetFieldConfig *dataSetFieldConfig);
 
@@ -220,40 +223,18 @@ typedef struct {
 } UA_DataSetFieldResult;
 
 UA_DataSetFieldResult
-UA_PublishedDataSet_addDataSetField(UA_Server *server, UA_NodeId publishedDataSetIdentifier,
-                                    const UA_DataSetFieldConfig *fieldConfig,
-                                    UA_NodeId *fieldIdentifier);
+UA_Server_addDataSetField(UA_Server *server,
+                          const UA_NodeId publishedDataSet,
+                          const UA_DataSetFieldConfig *fieldConfig,
+                          UA_NodeId *fieldIdentifier);
+
+/* Returns a deep copy of the config */
+UA_StatusCode
+UA_Server_getDataSetFieldConfig(UA_Server *server, const UA_NodeId dsf,
+                                UA_DataSetFieldConfig *config);
 
 UA_DataSetFieldResult
-UA_PublishedDataSet_removeField(UA_Server *server, UA_NodeId fieldIdentifier);
-
-/**
- * .. _dsw:
- *
- * DataSetWriter
- * -------------
- * The DataSetWriters are the glue between the WriterGroups and the
- * PublishedDataSets. The DataSetWriter contain configuration parameters and
- * flags which influence the creation of DataSet messages. These messages are
- * encapsulated inside the network message. The DataSetWriter must be linked
- * with an existing PublishedDataSet and be contained within a WriterGroup. */
-
-typedef struct {
-    UA_String name;
-    UA_UInt16 dataSetWriterId;
-    UA_DataSetFieldContentMask dataSetFieldContentMask;
-    UA_UInt32 keyFrameCount;
-    UA_ExtensionObject messageSettings;
-    UA_String dataSetName;
-    size_t dataSetWriterPropertiesSize;
-    UA_KeyValuePair *dataSetWriterProperties;
-} UA_DataSetWriterConfig;
-
-UA_StatusCode
-UA_DataSetWriter_getConfig(UA_Server *server, UA_NodeId dataSetWriterIdentifier,
-                           UA_DataSetWriterConfig *config);
-void
-UA_DataSetWriterConfig_deleteMembers(UA_DataSetWriterConfig *pdsConfig);
+UA_Server_removeDataSetField(UA_Server *server, const UA_NodeId dsf);
 
 /**
  * WriterGroup
@@ -284,33 +265,74 @@ typedef struct {
     size_t groupPropertiesSize;
     UA_KeyValuePair *groupProperties;
     UA_PubSubEncodingType encodingMimeType;
-    //non std. config parameter. maximum count of embedded DataSetMessage in one NetworkMessage
+
+    /* non std. config parameter. maximum count of embedded DataSetMessage in
+     * one NetworkMessage */
     UA_UInt16 maxEncapsulatedDataSetMessageCount;
 } UA_WriterGroupConfig;
 
 void
 UA_WriterGroupConfig_deleteMembers(UA_WriterGroupConfig *writerGroupConfig);
 
+/* Add a new WriterGroup to an existing Connection */
 UA_StatusCode
-UA_PubSubConnection_addWriterGroup(UA_Server *server, UA_NodeId connectionIdentifier,
-                                   const UA_WriterGroupConfig *writerGroupConfig,
-                                   UA_NodeId *writerGroupIdentifier);
+UA_Server_addWriterGroup(UA_Server *server, const UA_NodeId connection,
+                         const UA_WriterGroupConfig *writerGroupConfig,
+                         UA_NodeId *writerGroupIdentifier);
+
+/* Returns a deep copy of the config */
 UA_StatusCode
-UA_PubSubConnection_removeGroup(UA_Server *server, UA_NodeId groupIdentifier);
+UA_Server_getWriterGroupConfig(UA_Server *server, const UA_NodeId writerGroup,
+                               UA_WriterGroupConfig *config);
 
 UA_StatusCode
-UA_WriterGroup_getConfig(UA_Server *server, UA_NodeId writerGroupIdentifier,
-                         UA_WriterGroupConfig *config);
+UA_Server_removeWriterGroup(UA_Server *server, const UA_NodeId writerGroup);
+
+/**
+ * .. _dsw:
+ *
+ * DataSetWriter
+ * -------------
+ * The DataSetWriters are the glue between the WriterGroups and the
+ * PublishedDataSets. The DataSetWriter contain configuration parameters and
+ * flags which influence the creation of DataSet messages. These messages are
+ * encapsulated inside the network message. The DataSetWriter must be linked
+ * with an existing PublishedDataSet and be contained within a WriterGroup. */
+
+typedef struct {
+    UA_String name;
+    UA_UInt16 dataSetWriterId;
+    UA_DataSetFieldContentMask dataSetFieldContentMask;
+    UA_UInt32 keyFrameCount;
+    UA_ExtensionObject messageSettings;
+    UA_String dataSetName;
+    size_t dataSetWriterPropertiesSize;
+    UA_KeyValuePair *dataSetWriterProperties;
+} UA_DataSetWriterConfig;
+
+void
+UA_DataSetWriterConfig_deleteMembers(UA_DataSetWriterConfig *pdsConfig);
+
+/* Add a new DataSetWriter to a existing WriterGroup. The DataSetWriter must be
+ * coupled with a PublishedDataSet on creation.
+ *
+ * Part 14, 7.1.5.2.1 defines: The link between the PublishedDataSet and
+ * DataSetWriter shall be created when an instance of the DataSetWriterType is
+ * created. */
+UA_StatusCode
+UA_Server_addDataSetWriter(UA_Server *server,
+                           const UA_NodeId writerGroup, const UA_NodeId dataSet,
+                           const UA_DataSetWriterConfig *dataSetWriterConfig,
+                           UA_NodeId *writerIdentifier);
+
+/* Returns a deep copy of the config */
+UA_StatusCode
+UA_Server_getDataSetWriterConfig(UA_Server *server, const UA_NodeId dsw,
+                                 UA_DataSetWriterConfig *config);
 
 UA_StatusCode
-UA_WriterGroup_addDataSetWriter(UA_Server *server, UA_NodeId writerGroupIdentifier,
-                                UA_NodeId dataSetIdentifier,
-                                const UA_DataSetWriterConfig *dataSetWriterConfig,
-                                UA_NodeId *writerIdentifier);
-
-UA_StatusCode
-UA_WriterGroup_removeDataSetWriter(UA_Server *server, UA_NodeId writerIdentifier);
-
+UA_Server_removeDataSetWriter(UA_Server *server, const UA_NodeId dsw);
+    
 #ifdef __cplusplus
 } // extern "C"
 #endif

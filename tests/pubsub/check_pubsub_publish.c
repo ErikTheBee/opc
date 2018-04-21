@@ -54,7 +54,7 @@ START_TEST(AddWriterGroupWithValidConfiguration){
         writerGroupConfig.name = UA_STRING("WriterGroup 1");
         writerGroupConfig.publishingInterval = 10;
         UA_NodeId localWriterGroup;
-        retVal = UA_PubSubConnection_addWriterGroup(server, connection1, &writerGroupConfig, &localWriterGroup);
+        retVal = UA_Server_addWriterGroup(server, connection1, &writerGroupConfig, &localWriterGroup);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         size_t writerGroupCount = 0;
         UA_WriterGroup *writerGroup;
@@ -71,9 +71,9 @@ START_TEST(AddRemoveAddWriterGroupWithMinimalValidConfiguration){
         writerGroupConfig.name = UA_STRING("WriterGroup 1");
         writerGroupConfig.publishingInterval = 10;
         UA_NodeId localWriterGroup;
-        retVal |= UA_PubSubConnection_addWriterGroup(server, connection1, &writerGroupConfig, &localWriterGroup);
+        retVal |= UA_Server_addWriterGroup(server, connection1, &writerGroupConfig, &localWriterGroup);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
-        retVal |= UA_PubSubConnection_removeGroup(server, localWriterGroup);
+        retVal |= UA_Server_removeWriterGroup(server, localWriterGroup);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         size_t writerGroupCount = 0;
         UA_WriterGroup *writerGroup;
@@ -81,14 +81,14 @@ START_TEST(AddRemoveAddWriterGroupWithMinimalValidConfiguration){
             writerGroupCount++;
         }
         ck_assert_int_eq(writerGroupCount, 0);
-        retVal |= UA_PubSubConnection_addWriterGroup(server, connection1, &writerGroupConfig, &localWriterGroup);
+        retVal |= UA_Server_addWriterGroup(server, connection1, &writerGroupConfig, &localWriterGroup);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         writerGroupCount = 0;
         LIST_FOREACH(writerGroup, &UA_PubSubConnection_findConnectionbyId(server, connection1)->writerGroups, listEntry){
             writerGroupCount++;
         }
         ck_assert_int_eq(writerGroupCount, 1);
-        retVal |= UA_PubSubConnection_addWriterGroup(server, connection1, &writerGroupConfig, &localWriterGroup);
+        retVal |= UA_Server_addWriterGroup(server, connection1, &writerGroupConfig, &localWriterGroup);
         writerGroupCount = 0;
         LIST_FOREACH(writerGroup, &UA_PubSubConnection_findConnectionbyId(server, connection1)->writerGroups, listEntry){
             writerGroupCount++;
@@ -98,7 +98,7 @@ START_TEST(AddRemoveAddWriterGroupWithMinimalValidConfiguration){
 
 START_TEST(AddWriterGroupWithNullConfig){
         UA_StatusCode retVal = UA_STATUSCODE_GOOD;
-        retVal |= UA_PubSubConnection_addWriterGroup(server, connection1, NULL, NULL);
+        retVal |= UA_Server_addWriterGroup(server, connection1, NULL, NULL);
         size_t writerGroupCount = 0;
         UA_WriterGroup *writerGroup;
         LIST_FOREACH(writerGroup, &UA_PubSubConnection_findConnectionbyId(server, connection1)->writerGroups, listEntry){
@@ -114,7 +114,7 @@ START_TEST(AddWriterGroupWithInvalidConnectionId){
         memset(&writerGroupConfig, 0, sizeof(writerGroupConfig));
         writerGroupConfig.name = UA_STRING("WriterGroup 1");
         writerGroupConfig.publishingInterval = 10;
-        retVal |= UA_PubSubConnection_addWriterGroup(server, UA_NODEID_NUMERIC(0, UA_UINT32_MAX), &writerGroupConfig, NULL);
+        retVal |= UA_Server_addWriterGroup(server, UA_NODEID_NUMERIC(0, UA_UINT32_MAX), &writerGroupConfig, NULL);
         size_t writerGroupCount = 0;
         UA_WriterGroup *writerGroup;
         LIST_FOREACH(writerGroup, &UA_PubSubConnection_findConnectionbyId(server, connection1)->writerGroups, listEntry){
@@ -131,9 +131,9 @@ START_TEST(GetWriterGroupConfigurationAndCompareValues){
         writerGroupConfig.name = UA_STRING("WriterGroup 1");
         writerGroupConfig.publishingInterval = 10;
         UA_NodeId localWriterGroup;
-        retVal |= UA_PubSubConnection_addWriterGroup(server, connection1, &writerGroupConfig, &localWriterGroup);
+        retVal |= UA_Server_addWriterGroup(server, connection1, &writerGroupConfig, &localWriterGroup);
         UA_WriterGroupConfig writerGroupConfigCopy;
-        retVal |= UA_WriterGroup_getConfig(server, localWriterGroup, &writerGroupConfigCopy);
+        retVal |= UA_Server_getWriterGroupConfig(server, localWriterGroup, &writerGroupConfigCopy);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(UA_String_equal(&writerGroupConfig.name, &writerGroupConfigCopy.name), UA_TRUE);
         //todo remove == for floating point compare
@@ -146,13 +146,13 @@ static void setupDataSetWriterTestEnvironment(void){
     memset(&writerGroupConfig, 0, sizeof(writerGroupConfig));
     writerGroupConfig.name = UA_STRING("WriterGroup 1");
     writerGroupConfig.publishingInterval = 10;
-    UA_PubSubConnection_addWriterGroup(server, connection1, &writerGroupConfig, &writerGroup1);
+    UA_Server_addWriterGroup(server, connection1, &writerGroupConfig, &writerGroup1);
     writerGroupConfig.name = UA_STRING("WriterGroup 2");
     writerGroupConfig.publishingInterval = 50;
-    UA_PubSubConnection_addWriterGroup(server, connection2, &writerGroupConfig, &writerGroup2);
+    UA_Server_addWriterGroup(server, connection2, &writerGroupConfig, &writerGroup2);
     writerGroupConfig.name = UA_STRING("WriterGroup 3");
     writerGroupConfig.publishingInterval = 100;
-    UA_PubSubConnection_addWriterGroup(server, connection2, &writerGroupConfig, &writerGroup3);
+    UA_Server_addWriterGroup(server, connection2, &writerGroupConfig, &writerGroup3);
     UA_PublishedDataSetConfig pdsConfig;
     memset(&pdsConfig, 0, sizeof(UA_PublishedDataSetConfig));
     pdsConfig.publishedDataSetType = UA_PUBSUB_DATASET_PUBLISHEDITEMS;
@@ -168,7 +168,7 @@ START_TEST(AddDataSetWriterWithValidConfiguration){
         memset(&dataSetWriterConfig, 0, sizeof(dataSetWriterConfig));
         dataSetWriterConfig.name = UA_STRING("DataSetWriter 1 ");
         UA_NodeId localDataSetWriter;
-        retVal = UA_WriterGroup_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &localDataSetWriter);
+        retVal = UA_Server_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &localDataSetWriter);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         UA_DataSetWriter *dsw1 = UA_DataSetWriter_findDSWbyId(server, localDataSetWriter);
         ck_assert_ptr_ne(dsw1, NULL);
@@ -187,22 +187,22 @@ START_TEST(AddRemoveAddDataSetWriterWithValidConfiguration){
         dataSetWriterConfig.name = UA_STRING("DataSetWriter 1 ");
         UA_NodeId dataSetWriter;
         ck_assert_int_eq(wg1->writersCount, 0);
-        retVal = UA_WriterGroup_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &dataSetWriter);
+        retVal = UA_Server_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &dataSetWriter);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(wg1->writersCount, 1);
-        retVal = UA_WriterGroup_removeDataSetWriter(server, dataSetWriter);
+        retVal = UA_Server_removeDataSetWriter(server, dataSetWriter);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(wg1->writersCount, 0);
-        retVal = UA_WriterGroup_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &dataSetWriter);
+        retVal = UA_Server_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &dataSetWriter);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(wg1->writersCount, 1);
-        retVal = UA_WriterGroup_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &dataSetWriter);
+        retVal = UA_Server_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &dataSetWriter);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(wg1->writersCount, 2);
 
         UA_WriterGroup *wg2 = UA_WriterGroup_findWGbyId(server, writerGroup2);
         ck_assert_ptr_ne(wg2, NULL);
-        retVal = UA_WriterGroup_addDataSetWriter(server, writerGroup2, publishedDataSet1, &dataSetWriterConfig, &dataSetWriter);
+        retVal = UA_Server_addDataSetWriter(server, writerGroup2, publishedDataSet1, &dataSetWriterConfig, &dataSetWriter);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(wg2->writersCount, 1);
     } END_TEST
@@ -210,7 +210,7 @@ START_TEST(AddRemoveAddDataSetWriterWithValidConfiguration){
 START_TEST(AddDataSetWriterWithNullConfig){
         setupDataSetWriterTestEnvironment();
         UA_StatusCode retVal;
-        retVal = UA_WriterGroup_addDataSetWriter(server, writerGroup1, publishedDataSet1, NULL, NULL);
+        retVal = UA_Server_addDataSetWriter(server, writerGroup1, publishedDataSet1, NULL, NULL);
         UA_WriterGroup *wg1 = UA_WriterGroup_findWGbyId(server, writerGroup1);
         ck_assert_ptr_ne(wg1, NULL);
         ck_assert_int_eq(wg1->writersCount, 0);
@@ -223,7 +223,7 @@ START_TEST(AddDataSetWriterWithInvalidPDSId){
         UA_DataSetWriterConfig dataSetWriterConfig;
         memset(&dataSetWriterConfig, 0, sizeof(dataSetWriterConfig));
         dataSetWriterConfig.name = UA_STRING("DataSetWriter 1 ");
-        retVal = UA_WriterGroup_addDataSetWriter(server, writerGroup1, UA_NODEID_NUMERIC(0, UA_UINT32_MAX), &dataSetWriterConfig, NULL);
+        retVal = UA_Server_addDataSetWriter(server, writerGroup1, UA_NODEID_NUMERIC(0, UA_UINT32_MAX), &dataSetWriterConfig, NULL);
         UA_WriterGroup *wg1 = UA_WriterGroup_findWGbyId(server, writerGroup1);
         ck_assert_ptr_ne(wg1, NULL);
         ck_assert_int_eq(wg1->writersCount, 0);
@@ -237,10 +237,10 @@ START_TEST(GetDataSetWriterConfigurationAndCompareValues){
         memset(&dataSetWriterConfig, 0, sizeof(dataSetWriterConfig));
         dataSetWriterConfig.name = UA_STRING("DataSetWriter 1 ");
         UA_NodeId localDataSetWriter;
-        retVal = UA_WriterGroup_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &localDataSetWriter);
+        retVal = UA_Server_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &localDataSetWriter);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         UA_DataSetWriterConfig dataSetWiterConfigCopy;
-        retVal |= UA_DataSetWriter_getConfig(server, localDataSetWriter, &dataSetWiterConfigCopy);
+        retVal |= UA_Server_getDataSetWriterConfig(server, localDataSetWriter, &dataSetWiterConfigCopy);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(UA_String_equal(&dataSetWiterConfigCopy.name, &dataSetWiterConfigCopy.name), UA_TRUE);
         UA_DataSetWriterConfig_deleteMembers(&dataSetWiterConfigCopy);
@@ -251,11 +251,11 @@ static void setupDataSetFieldTestEnvironment(void){
     UA_DataSetWriterConfig dataSetWriterConfig;
     memset(&dataSetWriterConfig, 0, sizeof(dataSetWriterConfig));
     dataSetWriterConfig.name = UA_STRING("DataSetWriter 1");
-    UA_WriterGroup_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &dataSetWriter1);
+    UA_Server_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &dataSetWriter1);
     dataSetWriterConfig.name = UA_STRING("DataSetWriter 2");
-    UA_WriterGroup_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &dataSetWriter2);
+    UA_Server_addDataSetWriter(server, writerGroup1, publishedDataSet1, &dataSetWriterConfig, &dataSetWriter2);
     dataSetWriterConfig.name = UA_STRING("DataSetWriter 3");
-    UA_WriterGroup_addDataSetWriter(server, writerGroup2, publishedDataSet2, &dataSetWriterConfig, &dataSetWriter3);
+    UA_Server_addDataSetWriter(server, writerGroup2, publishedDataSet2, &dataSetWriterConfig, &dataSetWriter3);
 }
 
 START_TEST(AddDataSetFieldWithValidConfiguration){
@@ -269,7 +269,7 @@ START_TEST(AddDataSetFieldWithValidConfiguration){
         UA_PublishedDataSet *pds = UA_PublishedDataSet_findPDSbyId(server, publishedDataSet1);
         ck_assert_ptr_ne(pds, NULL);
         ck_assert_int_eq(pds->fieldSize, 0);
-        retVal = UA_PublishedDataSet_addDataSetField(server, publishedDataSet1, &fieldConfig, &localDataSetField).result;
+        retVal = UA_Server_addDataSetField(server, publishedDataSet1, &fieldConfig, &localDataSetField).result;
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(pds->fieldSize, 1);
     } END_TEST
@@ -285,21 +285,21 @@ START_TEST(AddRemoveAddDataSetFieldWithValidConfiguration){
         UA_PublishedDataSet *pds1 = UA_PublishedDataSet_findPDSbyId(server, publishedDataSet1);
         ck_assert_ptr_ne(pds1, NULL);
         ck_assert_int_eq(pds1->fieldSize, 0);
-        retVal = UA_PublishedDataSet_addDataSetField(server, publishedDataSet1, &fieldConfig, &localDataSetField).result;
+        retVal = UA_Server_addDataSetField(server, publishedDataSet1, &fieldConfig, &localDataSetField).result;
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(pds1->fieldSize, 1);
-        retVal = UA_PublishedDataSet_removeField(server, localDataSetField).result;
+        retVal = UA_Server_removeDataSetField(server, localDataSetField).result;
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(pds1->fieldSize, 0);
-        retVal = UA_PublishedDataSet_addDataSetField(server, publishedDataSet1, &fieldConfig, &localDataSetField).result;
+        retVal = UA_Server_addDataSetField(server, publishedDataSet1, &fieldConfig, &localDataSetField).result;
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(pds1->fieldSize, 1);
-        retVal = UA_PublishedDataSet_addDataSetField(server, publishedDataSet1, &fieldConfig, &localDataSetField).result;
+        retVal = UA_Server_addDataSetField(server, publishedDataSet1, &fieldConfig, &localDataSetField).result;
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(pds1->fieldSize, 2);
         UA_PublishedDataSet *pds2 = UA_PublishedDataSet_findPDSbyId(server, publishedDataSet2);
         ck_assert_ptr_ne(pds2, NULL);
-        retVal = UA_PublishedDataSet_addDataSetField(server, publishedDataSet2, &fieldConfig, &localDataSetField).result;
+        retVal = UA_Server_addDataSetField(server, publishedDataSet2, &fieldConfig, &localDataSetField).result;
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(pds2->fieldSize, 1);
     } END_TEST
@@ -307,7 +307,7 @@ START_TEST(AddRemoveAddDataSetFieldWithValidConfiguration){
 START_TEST(AddDataSetFieldWithNullConfig){
         setupDataSetFieldTestEnvironment();
         UA_StatusCode retVal;
-        retVal = UA_PublishedDataSet_addDataSetField(server, publishedDataSet1, NULL, NULL).result;
+        retVal = UA_Server_addDataSetField(server, publishedDataSet1, NULL, NULL).result;
         ck_assert_int_ne(retVal, UA_STATUSCODE_GOOD);
         UA_PublishedDataSet *pds1 = UA_PublishedDataSet_findPDSbyId(server, publishedDataSet1);
         ck_assert_ptr_ne(pds1, NULL);
@@ -321,7 +321,7 @@ START_TEST(AddDataSetFieldWithInvalidPDSId){
         memset(&fieldConfig, 0, sizeof(UA_DataSetFieldConfig));
         fieldConfig.dataSetFieldType = UA_PUBSUB_DATASETFIELD_VARIABLE;
         fieldConfig.field.variable.fieldNameAlias = UA_STRING("field 1");
-        retVal = UA_PublishedDataSet_addDataSetField(server, UA_NODEID_NUMERIC(0, UA_UINT32_MAX), &fieldConfig, NULL).result;
+        retVal = UA_Server_addDataSetField(server, UA_NODEID_NUMERIC(0, UA_UINT32_MAX), &fieldConfig, NULL).result;
         ck_assert_int_ne(retVal, UA_STATUSCODE_GOOD);
         UA_PublishedDataSet *pds1 = UA_PublishedDataSet_findPDSbyId(server, publishedDataSet1);
         ck_assert_ptr_ne(pds1, NULL);
@@ -336,10 +336,10 @@ START_TEST(GetDataSetFieldConfigurationAndCompareValues){
         fieldConfig.dataSetFieldType = UA_PUBSUB_DATASETFIELD_VARIABLE;
         fieldConfig.field.variable.fieldNameAlias = UA_STRING("field 1");
         UA_NodeId dataSetFieldId;
-        retVal = UA_PublishedDataSet_addDataSetField(server, publishedDataSet1, &fieldConfig, &dataSetFieldId).result;
+        retVal = UA_Server_addDataSetField(server, publishedDataSet1, &fieldConfig, &dataSetFieldId).result;
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         UA_DataSetFieldConfig fieldConfigCopy;
-        retVal |= UA_DataSetField_getConfig(server, dataSetFieldId, &fieldConfigCopy);
+        retVal |= UA_Server_getDataSetFieldConfig(server, dataSetFieldId, &fieldConfigCopy);
         ck_assert_int_eq(retVal, UA_STATUSCODE_GOOD);
         ck_assert_int_eq(fieldConfig.dataSetFieldType, fieldConfigCopy.dataSetFieldType);
         ck_assert_int_eq(UA_String_equal(&fieldConfig.field.variable.fieldNameAlias, &fieldConfigCopy.field.variable.fieldNameAlias), UA_TRUE);
