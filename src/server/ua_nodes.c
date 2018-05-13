@@ -595,14 +595,45 @@ UA_Node_deleteReference(UA_Node *node, const UA_DeleteReferencesItem *item) {
     return UA_STATUSCODE_UNCERTAINREFERENCENOTDELETED;
 }
 
-void UA_Node_deleteReferences(UA_Node *node) {
+void
+UA_Node_deleteReferencesSubset(UA_Node *node, size_t referencesSkipSize,
+                               UA_NodeId* referencesSkip) {
+    /* Nothing to do */
+    if(node->referencesSize == 0 || node->references == NULL)
+        return;
+
     for(size_t i = 0; i < node->referencesSize; ++i) {
+        /* Shall we keep the references of this type? */
+        UA_Boolean skip = false;
+        for(size_t j = 0; j < referencesSkipSize; j++) {
+            if(!UA_NodeId_equal(&node->references[i].referenceTypeId, &referencesSkip[j])) {
+                skip = true;
+                break;
+            }
+        }
+        if(skip)
+            continue;
+
+        /* Remove references */
         UA_NodeReferenceKind *refs = &node->references[i];
         UA_Array_delete(refs->targetIds, refs->targetIdsSize, &UA_TYPES[UA_TYPES_EXPANDEDNODEID]);
         UA_NodeId_deleteMembers(&refs->referenceTypeId);
+
+        /* Move last references-kind entry to this position */
+        if(i == node->referencesSize-1)
+            continue;
+        node->references[i] = node->references[node->referencesSize-1];
+        node->referencesSize--;
+        i--;
     }
-    if(node->references)
+
+    /* The array is empty. Remove. */
+    if(node->referencesSize == 0) {
         UA_free(node->references);
-    node->references = NULL;
-    node->referencesSize = 0;
+        node->references = NULL;
+    }
+}
+
+void UA_Node_deleteReferences(UA_Node *node) {
+    UA_Node_deleteReferencesSubset(node, 0, NULL);
 }
