@@ -207,3 +207,5 @@ DataSetFieldContentMask
 UadpDataSetMessageContentMask
 UadpNetworkMessageContentMask
 SimpleTypeDescription
+X509IdentityToken
+IssuedIdentityToken
